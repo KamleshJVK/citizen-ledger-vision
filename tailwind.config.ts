@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,27 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				citizen: {
+					DEFAULT: '#3B82F6', // Blue
+					hover: '#2563EB',
+					light: '#DBEAFE',
+				},
+				mla: {
+					DEFAULT: '#10B981', // Green
+					hover: '#059669',
+					light: '#D1FAE5',
+				},
+				officer: {
+					DEFAULT: '#6366F1', // Indigo
+					hover: '#4F46E5',
+					light: '#E0E7FF',
+				},
+				admin: {
+					DEFAULT: '#8B5CF6', // Purple
+					hover: '#7C3AED',
+					light: '#EDE9FE',
+				},
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -84,11 +105,16 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'pulse-slow': {
+					'0%, 100%': { opacity: '1' },
+					'50%': { opacity: '0.8' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse-slow': 'pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
 			}
 		}
 	},
