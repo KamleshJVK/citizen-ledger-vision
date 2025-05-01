@@ -13,8 +13,14 @@ import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import CitizenDashboard from "./pages/CitizenDashboard";
 import MLADashboard from "./pages/MLADashboard";
+import MLAPendingDemands from "./pages/MLAPendingDemands";
 import OfficerDashboard from "./pages/OfficerDashboard";
+import OfficerPendingDemands from "./pages/OfficerPendingDemands";
+import OfficerPolicies from "./pages/OfficerPolicies";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminUsers from "./pages/AdminUsers";
+import AdminDemands from "./pages/AdminDemands";
+import AdminSettings from "./pages/AdminSettings";
 import SubmitDemand from "./pages/SubmitDemand";
 import DemandDetails from "./pages/DemandDetails";
 import NotFound from "./pages/NotFound";
@@ -58,6 +64,7 @@ const App = () => (
                 <ProtectedRoute allowedRoles={["MLA"]}>
                   <Routes>
                     <Route path="/" element={<MLADashboard />} />
+                    <Route path="/pending" element={<MLAPendingDemands />} />
                     <Route path="/demand/:id" element={<DemandDetails />} />
                   </Routes>
                 </ProtectedRoute>
@@ -71,6 +78,8 @@ const App = () => (
                 <ProtectedRoute allowedRoles={["Higher Public Officer"]}>
                   <Routes>
                     <Route path="/" element={<OfficerDashboard />} />
+                    <Route path="/pending" element={<OfficerPendingDemands />} />
+                    <Route path="/policies" element={<OfficerPolicies />} />
                     <Route path="/demand/:id" element={<DemandDetails />} />
                   </Routes>
                 </ProtectedRoute>
@@ -84,6 +93,9 @@ const App = () => (
                 <ProtectedRoute allowedRoles={["Admin"]}>
                   <Routes>
                     <Route path="/" element={<AdminDashboard />} />
+                    <Route path="/users" element={<AdminUsers />} />
+                    <Route path="/demands" element={<AdminDemands />} />
+                    <Route path="/settings" element={<AdminSettings />} />
                   </Routes>
                 </ProtectedRoute>
               } 
