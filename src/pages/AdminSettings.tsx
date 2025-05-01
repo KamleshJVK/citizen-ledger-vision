@@ -6,65 +6,85 @@ import {
   Card, 
   CardContent, 
   CardDescription, 
-  CardFooter, 
   CardHeader, 
-  CardTitle 
+  CardTitle,
+  CardFooter
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { 
   Tabs, 
   TabsContent, 
   TabsList, 
   TabsTrigger 
 } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Settings as SettingsIcon, Save, Database, Shield, Key, Lock, Server } from "lucide-react";
 import { toast } from "sonner";
+import { Loader2, Save, RefreshCw, Shield, Blockchain, KeyRound, BadgeAlert } from "lucide-react";
 
 const AdminSettings = () => {
   const { user } = useAuth();
+  const [isSaving, setIsSaving] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   
   // General settings
-  const [systemName, setSystemName] = useState("Citizen Ledger");
-  const [welcomeMessage, setWelcomeMessage] = useState("Welcome to Citizen Ledger - The transparent platform for citizen demands and government actions.");
-  const [adminEmail, setAdminEmail] = useState("admin@example.com");
+  const [appName, setAppName] = useState("Citizen Ledger Vision");
+  const [welcomeMessage, setWelcomeMessage] = useState(
+    "A blockchain-powered platform connecting citizens with elected representatives and public officials for transparent governance and community development."
+  );
   
   // Security settings
-  const [twoFactorRequired, setTwoFactorRequired] = useState(true);
-  const [minimumPasswordLength, setMinimumPasswordLength] = useState("12");
-  const [sessionTimeout, setSessionTimeout] = useState("60");
+  const [requireEmailVerification, setRequireEmailVerification] = useState(true);
+  const [require2FA, setRequire2FA] = useState(false);
+  const [aadharVerification, setAadharVerification] = useState(true);
   
   // Blockchain settings
-  const [blockConfirmations, setBlockConfirmations] = useState("6");
-  const [blockchainEndpoint, setBlockchainEndpoint] = useState("https://blockchain.citizenledger.gov/api");
-  const [apiKey, setApiKey] = useState("sk_9f8e7d6c5b4a3211");
-  
-  // System settings
-  const [maintenanceMode, setMaintenanceMode] = useState(false);
-  const [debugMode, setDebugMode] = useState(false);
-  const [allowNewRegistrations, setAllowNewRegistrations] = useState(true);
-  
-  const handleSaveSettings = (section: string) => {
-    toast.success(`${section} settings saved successfully`);
+  const [blockchainNode, setBlockchainNode] = useState("https://blockchain.citizenledger.gov.in");
+  const [transactionTimeout, setTransactionTimeout] = useState("60");
+  const [consensusThreshold, setConsensusThreshold] = useState("75");
+
+  const handleSaveSettings = async (type: string) => {
+    setIsSaving(true);
+    
+    try {
+      // Simulate API call with delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      toast.success(`${type} settings saved successfully`);
+    } catch (error) {
+      console.error(`Error saving ${type} settings:`, error);
+      toast.error(`Failed to save ${type} settings. Please try again.`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleVerifyBlockchain = async () => {
+    setIsVerifying(true);
+    
+    try {
+      // Simulate API call with delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      toast.success("Blockchain integrity verified successfully");
+    } catch (error) {
+      console.error("Error verifying blockchain:", error);
+      toast.error("Failed to verify blockchain integrity. Please try again.");
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">System Settings</h2>
-            <p className="text-muted-foreground">
-              Configure and manage system settings
-            </p>
-          </div>
-          <Button variant="outline">
-            <SettingsIcon className="mr-2 h-4 w-4" />
-            Reset to Defaults
-          </Button>
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">System Settings</h2>
+          <p className="text-muted-foreground">
+            Configure and manage platform settings
+          </p>
         </div>
 
         <Tabs defaultValue="general" className="space-y-4">
@@ -72,264 +92,252 @@ const AdminSettings = () => {
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>
             <TabsTrigger value="blockchain">Blockchain</TabsTrigger>
-            <TabsTrigger value="system">System</TabsTrigger>
           </TabsList>
           
-          {/* General Settings Tab */}
-          <TabsContent value="general">
+          {/* General Settings */}
+          <TabsContent value="general" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>General Settings</CardTitle>
                 <CardDescription>
-                  Basic system configuration and appearance settings
+                  Configure basic platform settings
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="system-name">System Name</Label>
-                  <Input
-                    id="system-name"
-                    value={systemName}
-                    onChange={(e) => setSystemName(e.target.value)}
+                  <Label htmlFor="appName">Platform Name</Label>
+                  <Input 
+                    id="appName" 
+                    value={appName} 
+                    onChange={(e) => setAppName(e.target.value)} 
                   />
                 </div>
+                
                 <div className="space-y-2">
-                  <Label htmlFor="welcome-message">Welcome Message</Label>
-                  <Textarea
-                    id="welcome-message"
-                    value={welcomeMessage}
-                    onChange={(e) => setWelcomeMessage(e.target.value)}
-                    rows={3}
+                  <Label htmlFor="welcomeMessage">Welcome Message</Label>
+                  <Textarea 
+                    id="welcomeMessage" 
+                    className="min-h-32"
+                    value={welcomeMessage} 
+                    onChange={(e) => setWelcomeMessage(e.target.value)} 
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="admin-email">Admin Email</Label>
-                  <Input
-                    id="admin-email"
-                    type="email"
-                    value={adminEmail}
-                    onChange={(e) => setAdminEmail(e.target.value)}
-                  />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch id="show-blockchain-info" checked={true} />
-                  <Label htmlFor="show-blockchain-info">Show blockchain information on public pages</Label>
                 </div>
               </CardContent>
               <CardFooter>
-                <Button onClick={() => handleSaveSettings('General')}>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Changes
+                <Button 
+                  onClick={() => handleSaveSettings("General")}
+                  disabled={isSaving}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Changes
+                    </>
+                  )}
                 </Button>
               </CardFooter>
             </Card>
           </TabsContent>
           
-          {/* Security Settings Tab */}
-          <TabsContent value="security">
+          {/* Security Settings */}
+          <TabsContent value="security" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Security Settings</CardTitle>
                 <CardDescription>
-                  Configure security and access control settings
+                  Configure security measures and access controls
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Switch 
-                    id="two-factor" 
-                    checked={twoFactorRequired} 
-                    onCheckedChange={setTwoFactorRequired}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="emailVerification">Require Email Verification</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Users must verify their email address before accessing the platform
+                    </p>
+                  </div>
+                  <Switch
+                    id="emailVerification"
+                    checked={requireEmailVerification}
+                    onCheckedChange={setRequireEmailVerification}
                   />
-                  <Label htmlFor="two-factor">Require two-factor authentication for all users</Label>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="min-password">Minimum Password Length</Label>
-                  <div className="flex items-center">
-                    <Input
-                      id="min-password"
-                      type="number"
-                      min="8"
-                      max="32"
-                      value={minimumPasswordLength}
-                      onChange={(e) => setMinimumPasswordLength(e.target.value)}
-                      className="w-24"
-                    />
-                    <span className="ml-2 text-sm text-muted-foreground">characters</span>
+                
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="twoFactorAuth">Two-factor Authentication</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Require two-factor authentication for all users
+                    </p>
                   </div>
+                  <Switch
+                    id="twoFactorAuth"
+                    checked={require2FA}
+                    onCheckedChange={setRequire2FA}
+                  />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="session-timeout">Session Timeout</Label>
-                  <div className="flex items-center">
-                    <Input
-                      id="session-timeout"
-                      type="number"
-                      min="10"
-                      max="240"
-                      value={sessionTimeout}
-                      onChange={(e) => setSessionTimeout(e.target.value)}
-                      className="w-24"
-                    />
-                    <span className="ml-2 text-sm text-muted-foreground">minutes</span>
+                
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="aadharVerification">Aadhar Verification</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Verify Aadhar number during registration
+                    </p>
                   </div>
+                  <Switch
+                    id="aadharVerification"
+                    checked={aadharVerification}
+                    onCheckedChange={setAadharVerification}
+                  />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Switch id="enforce-password-history" defaultChecked />
-                  <Label htmlFor="enforce-password-history">Enforce password history (prevent reuse of last 5 passwords)</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch id="lockout" defaultChecked />
-                  <Label htmlFor="lockout">Enable account lockout after 5 failed login attempts</Label>
-                </div>
+                
                 <div className="pt-4">
-                  <Button variant="destructive" size="sm">
-                    <Lock className="mr-2 h-4 w-4" />
-                    Revoke All Sessions
-                  </Button>
+                  <div className="rounded-md bg-amber-50 p-4 text-amber-800">
+                    <div className="flex">
+                      <BadgeAlert className="h-5 w-5 mr-2" />
+                      <div>
+                        <h3 className="font-medium">Security Notice</h3>
+                        <p className="text-sm">
+                          Changing security settings will affect all users and may require them to re-authenticate.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
               <CardFooter>
-                <Button onClick={() => handleSaveSettings('Security')}>
-                  <Shield className="mr-2 h-4 w-4" />
-                  Save Security Settings
+                <Button 
+                  onClick={() => handleSaveSettings("Security")}
+                  disabled={isSaving}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="mr-2 h-4 w-4" />
+                      Update Security
+                    </>
+                  )}
                 </Button>
               </CardFooter>
             </Card>
           </TabsContent>
           
-          {/* Blockchain Settings Tab */}
-          <TabsContent value="blockchain">
+          {/* Blockchain Settings */}
+          <TabsContent value="blockchain" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Blockchain Configuration</CardTitle>
                 <CardDescription>
-                  Configure blockchain connectivity and settings
+                  Configure blockchain settings for the platform
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="blockchain-endpoint">Blockchain API Endpoint</Label>
-                  <Input
-                    id="blockchain-endpoint"
-                    value={blockchainEndpoint}
-                    onChange={(e) => setBlockchainEndpoint(e.target.value)}
+                  <Label htmlFor="blockchainNode">Blockchain Node URL</Label>
+                  <Input 
+                    id="blockchainNode" 
+                    value={blockchainNode} 
+                    onChange={(e) => setBlockchainNode(e.target.value)} 
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="blockchain-api-key">API Key</Label>
-                  <Input
-                    id="blockchain-api-key"
-                    type="password"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                  />
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="transactionTimeout">Transaction Timeout (seconds)</Label>
+                    <Input 
+                      id="transactionTimeout" 
+                      type="number"
+                      value={transactionTimeout} 
+                      onChange={(e) => setTransactionTimeout(e.target.value)} 
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="consensusThreshold">Consensus Threshold (%)</Label>
+                    <Input 
+                      id="consensusThreshold" 
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={consensusThreshold} 
+                      onChange={(e) => setConsensusThreshold(e.target.value)} 
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="block-confirmations">Required Block Confirmations</Label>
-                  <Input
-                    id="block-confirmations"
-                    type="number"
-                    min="1"
-                    max="12"
-                    value={blockConfirmations}
-                    onChange={(e) => setBlockConfirmations(e.target.value)}
-                    className="w-24"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Number of block confirmations required before a transaction is considered final
-                  </p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch id="auto-verify" defaultChecked />
-                  <Label htmlFor="auto-verify">Automatically verify transactions on the blockchain</Label>
-                </div>
-                <div className="pt-4">
-                  <Button variant="secondary" size="sm">
-                    <Database className="mr-2 h-4 w-4" />
-                    Test Connection
+                
+                <div className="pt-4 space-y-4">
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={handleVerifyBlockchain}
+                    disabled={isVerifying}
+                  >
+                    {isVerifying ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Verifying Blockchain Integrity...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Verify Blockchain Integrity
+                      </>
+                    )}
                   </Button>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button onClick={() => handleSaveSettings('Blockchain')}>
-                  <Key className="mr-2 h-4 w-4" />
-                  Save Blockchain Settings
-                </Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-          
-          {/* System Settings Tab */}
-          <TabsContent value="system">
-            <Card>
-              <CardHeader>
-                <CardTitle>System Configuration</CardTitle>
-                <CardDescription>
-                  Advanced system settings and maintenance options
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Switch 
-                    id="maintenance-mode" 
-                    checked={maintenanceMode}
-                    onCheckedChange={setMaintenanceMode}
-                  />
-                  <Label htmlFor="maintenance-mode">
-                    <span className="font-medium">Maintenance Mode</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      When enabled, only administrators can access the system
-                    </p>
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch 
-                    id="debug-mode" 
-                    checked={debugMode}
-                    onCheckedChange={setDebugMode}
-                  />
-                  <Label htmlFor="debug-mode">
-                    <span className="font-medium">Debug Mode</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Enable detailed logging and error messages
-                    </p>
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch 
-                    id="allow-registrations" 
-                    checked={allowNewRegistrations}
-                    onCheckedChange={setAllowNewRegistrations}
-                  />
-                  <Label htmlFor="allow-registrations">
-                    <span className="font-medium">Allow New Registrations</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      When disabled, new users cannot register for accounts
-                    </p>
-                  </Label>
-                </div>
-                <div className="space-y-2 pt-4">
-                  <Label>System Actions</Label>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm">
-                      Purge Cache
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      Backup Database
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      System Log
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      Verify Data Integrity
-                    </Button>
+                  
+                  <div className="rounded-md bg-blue-50 p-4 text-blue-800">
+                    <div className="flex">
+                      <Blockchain className="h-5 w-5 mr-2" />
+                      <div>
+                        <h3 className="font-medium">Blockchain Status</h3>
+                        <p className="text-sm">
+                          Current chain: 421,592 blocks | Last verified: 2025-05-01 09:23:14
+                        </p>
+                        <p className="text-sm font-medium text-green-600 mt-1">
+                          All transactions verified and secure
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="rounded-md bg-neutral-100 p-4">
+                    <div className="flex">
+                      <KeyRound className="h-5 w-5 mr-2" />
+                      <div>
+                        <h3 className="font-medium">Your Public Key</h3>
+                        <p className="text-xs font-mono break-all mt-1">
+                          {user?.publicKey}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </CardContent>
               <CardFooter>
-                <Button onClick={() => handleSaveSettings('System')}>
-                  <Server className="mr-2 h-4 w-4" />
-                  Save System Settings
+                <Button 
+                  onClick={() => handleSaveSettings("Blockchain")}
+                  disabled={isSaving}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Configuration
+                    </>
+                  )}
                 </Button>
               </CardFooter>
             </Card>
