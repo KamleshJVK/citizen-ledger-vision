@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Demand } from "@/types";
+import { Demand, TransactionAction } from "@/types";
 import { Search, FileText, ClipboardList, CheckCircle, XCircle } from "lucide-react";
 import {
   Table,
@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { useBlockchain } from "@/hooks/useBlockchain";
+import { useDataSync } from "@/hooks/useDataSync";
+import { supabase } from "@/integrations/supabase/client";
 
 // Mock pending demands data
 const mockPendingDemands: Demand[] = [
@@ -99,9 +101,98 @@ const MLAPendingDemands = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { createBlockchainTransaction } = useBlockchain();
+  const { onDemandChange } = useDataSync();
   const [searchTerm, setSearchTerm] = useState("");
   const [demands, setDemands] = useState<Demand[]>(mockPendingDemands);
   const [processing, setProcessing] = useState<Record<string, boolean>>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load demands when component mounts
+  useEffect(() => {
+    fetchDemands();
+    
+    // Set up listener for demand changes
+    const unsubscribe = onDemandChange((updatedDemand) => {
+      if (updatedDemand.status === "Pending") {
+        setDemands(prev => {
+          // Add the new demand if it doesn't exist
+          if (!prev.some(d => d.id === updatedDemand.id)) {
+            return [...prev, updatedDemand];
+          }
+          // Update the demand if it exists
+          return prev.map(d => d.id === updatedDemand.id ? updatedDemand : d);
+        });
+      } else {
+        // If the status changed from Pending, remove it from this list
+        setDemands(prev => prev.filter(d => d.id !== updatedDemand.id));
+      }
+    });
+    
+    return unsubscribe;
+  }, []);
+  
+  // Set up real-time listener for demands
+  useEffect(() => {
+    const channel = supabase
+      .channel('pending-demands')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'demands',
+        filter: 'status=eq.Pending'
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const newDemand = payload.new as Demand;
+          setDemands(prev => {
+            if (!prev.some(d => d.id === newDemand.id)) {
+              return [...prev, newDemand];
+            }
+            return prev;
+          });
+        } else if (payload.eventType === 'UPDATE') {
+          const updatedDemand = payload.new as Demand;
+          // If still pending, update it, otherwise remove it
+          if (updatedDemand.status === "Pending") {
+            setDemands(prev => prev.map(d => d.id === updatedDemand.id ? updatedDemand : d));
+          } else {
+            setDemands(prev => prev.filter(d => d.id !== updatedDemand.id));
+          }
+        } else if (payload.eventType === 'DELETE') {
+          const deletedDemand = payload.old as Demand;
+          setDemands(prev => prev.filter(d => d.id !== deletedDemand.id));
+        }
+      })
+      .subscribe();
+      
+    return () => {
+      channel.unsubscribe();
+    };
+  }, []);
+
+  const fetchDemands = async () => {
+    setIsLoading(true);
+    try {
+      // In a real app, fetch from the database
+      const { data, error } = await supabase
+        .from('demands')
+        .select('*')
+        .eq('status', 'Pending');
+        
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        setDemands(data as Demand[]);
+      } else {
+        // Use mock data for demo purposes
+        setDemands(mockPendingDemands);
+      }
+    } catch (error) {
+      console.error('Error fetching demands:', error);
+      toast.error('Failed to load pending demands');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredDemands = demands.filter(demand =>
     demand.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -114,9 +205,6 @@ const MLAPendingDemands = () => {
     setProcessing(prev => ({ ...prev, [demandId]: true }));
     
     try {
-      // Simulate API call with delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
       const demand = demands.find(d => d.id === demandId);
       
       if (!demand) {
@@ -125,10 +213,12 @@ const MLAPendingDemands = () => {
       }
       
       let newStatus = action === 'approve' ? 'Reviewed' : 'Rejected';
-      let transactionAction = action === 'approve' ? 'Demand Reviewed' : 'Demand Rejected';
+      let transactionAction: TransactionAction = action === 'approve' 
+        ? "Demand Reviewed" 
+        : "Demand Rejected";
       
       // Create a blockchain transaction
-      const transaction = createBlockchainTransaction(
+      const transaction = await createBlockchainTransaction(
         demandId,
         user?.id || "",
         user?.name || "",
@@ -136,6 +226,19 @@ const MLAPendingDemands = () => {
         demand.status,
         newStatus
       );
+      
+      // Update demand in the database
+      const { error } = await supabase
+        .from('demands')
+        .update({ 
+          status: newStatus,
+          mlaId: user?.id,
+          mlaName: user?.name,
+          ...(newStatus === 'Rejected' ? { rejectionDate: new Date().toISOString() } : {})
+        })
+        .eq('id', demandId);
+        
+      if (error) throw error;
       
       // Update demand in the UI
       const updatedDemands = demands.filter(d => d.id !== demandId);
@@ -184,7 +287,7 @@ const MLAPendingDemands = () => {
           <CardHeader>
             <CardTitle>Pending Demands</CardTitle>
             <CardDescription>
-              {filteredDemands.length} demands requiring your review
+              {isLoading ? 'Loading demands...' : `${filteredDemands.length} demands requiring your review`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -200,7 +303,16 @@ const MLAPendingDemands = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredDemands.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      <div className="flex justify-center items-center">
+                        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                        <span>Loading demands...</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredDemands.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center">
                       No pending demands found

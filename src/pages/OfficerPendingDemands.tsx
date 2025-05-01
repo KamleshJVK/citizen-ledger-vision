@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -13,8 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Demand } from "@/types";
-import { Search, FileText, ClipboardList, CheckCircle, XCircle } from "lucide-react";
+import { Demand, TransactionAction } from "@/types";
+import { Search, FileText, ClipboardList, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -25,23 +24,25 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { useBlockchain } from "@/hooks/useBlockchain";
+import { useDataSync } from "@/hooks/useDataSync";
+import { supabase } from "@/integrations/supabase/client";
 
 // Mock forwarded demands data
 const mockForwardedDemands: Demand[] = [
   {
     id: "201",
-    title: "Highway Expansion Project",
-    description: "Expand the highway connecting the city to the industrial zone to reduce traffic congestion.",
-    categoryId: "1",
-    categoryName: "Infrastructure",
-    proposerId: "1",
-    proposerName: "John Citizen",
-    submissionDate: "2025-04-10T10:30:00Z",
+    title: "Public Hospital Expansion",
+    description: "Expand the city hospital with a new wing for emergency services.",
+    categoryId: "3",
+    categoryName: "Healthcare",
+    proposerId: "5",
+    proposerName: "Alex Thompson",
+    submissionDate: "2025-03-10T09:20:00Z",
     status: "Forwarded",
     voteCount: 156,
     mlaId: "2",
     mlaName: "Mary MLA",
-    hash: "hash_a1b2c3d4"
+    hash: "hash_r7s8t9u0"
   },
   {
     id: "202",
@@ -94,25 +95,106 @@ const OfficerPendingDemands = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { createBlockchainTransaction } = useBlockchain();
+  const { onDemandChange } = useDataSync();
   const [searchTerm, setSearchTerm] = useState("");
   const [demands, setDemands] = useState<Demand[]>(mockForwardedDemands);
   const [processing, setProcessing] = useState<Record<string, boolean>>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load demands when component mounts
+  useEffect(() => {
+    fetchDemands();
+    
+    // Set up listener for demand changes
+    const unsubscribe = onDemandChange((updatedDemand) => {
+      if (updatedDemand.status === "Forwarded") {
+        setDemands(prev => {
+          // Add the new demand if it doesn't exist
+          if (!prev.some(d => d.id === updatedDemand.id)) {
+            return [...prev, updatedDemand];
+          }
+          // Update the demand if it exists
+          return prev.map(d => d.id === updatedDemand.id ? updatedDemand : d);
+        });
+      } else {
+        // If the status changed from Forwarded, remove it from this list
+        setDemands(prev => prev.filter(d => d.id !== updatedDemand.id));
+      }
+    });
+    
+    return unsubscribe;
+  }, []);
+  
+  // Set up real-time listener for demands
+  useEffect(() => {
+    const channel = supabase
+      .channel('forwarded-demands')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'demands',
+        filter: 'status=eq.Forwarded'
+      }, (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const newDemand = payload.new as Demand;
+          if (newDemand.status === "Forwarded") {
+            setDemands(prev => {
+              if (!prev.some(d => d.id === newDemand.id)) {
+                return [...prev, newDemand];
+              }
+              return prev.map(d => d.id === newDemand.id ? newDemand : d);
+            });
+          } else {
+            setDemands(prev => prev.filter(d => d.id !== newDemand.id));
+          }
+        } else if (payload.eventType === 'DELETE') {
+          const deletedDemand = payload.old as Demand;
+          setDemands(prev => prev.filter(d => d.id !== deletedDemand.id));
+        }
+      })
+      .subscribe();
+      
+    return () => {
+      channel.unsubscribe();
+    };
+  }, []);
+
+  const fetchDemands = async () => {
+    setIsLoading(true);
+    try {
+      // In a real app, fetch from the database
+      const { data, error } = await supabase
+        .from('demands')
+        .select('*')
+        .eq('status', 'Forwarded');
+        
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        setDemands(data as Demand[]);
+      } else {
+        // Use mock data for demo purposes
+        setDemands(mockForwardedDemands);
+      }
+    } catch (error) {
+      console.error('Error fetching demands:', error);
+      toast.error('Failed to load forwarded demands');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredDemands = demands.filter(demand =>
     demand.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     demand.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
     demand.categoryName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    demand.proposerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    demand.mlaName?.toLowerCase().includes(searchTerm.toLowerCase())
+    demand.proposerName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleAction = async (demandId: string, action: 'approve' | 'reject') => {
     setProcessing(prev => ({ ...prev, [demandId]: true }));
     
     try {
-      // Simulate API call with delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
       const demand = demands.find(d => d.id === demandId);
       
       if (!demand) {
@@ -121,10 +203,12 @@ const OfficerPendingDemands = () => {
       }
       
       let newStatus = action === 'approve' ? 'Approved' : 'Rejected';
-      let transactionAction = action === 'approve' ? 'Demand Approved' : 'Demand Rejected';
+      let transactionAction: TransactionAction = action === 'approve' 
+        ? "Demand Approved" 
+        : "Demand Rejected";
       
       // Create a blockchain transaction
-      const transaction = createBlockchainTransaction(
+      const transaction = await createBlockchainTransaction(
         demandId,
         user?.id || "",
         user?.name || "",
@@ -132,6 +216,21 @@ const OfficerPendingDemands = () => {
         demand.status,
         newStatus
       );
+      
+      // Update demand in the database
+      const { error } = await supabase
+        .from('demands')
+        .update({ 
+          status: newStatus,
+          officerId: user?.id,
+          officerName: user?.name,
+          ...(action === 'approve' 
+            ? { approvalDate: new Date().toISOString() } 
+            : { rejectionDate: new Date().toISOString() })
+        })
+        .eq('id', demandId);
+        
+      if (error) throw error;
       
       // Update demand in the UI
       const updatedDemands = demands.filter(d => d.id !== demandId);
@@ -154,7 +253,7 @@ const OfficerPendingDemands = () => {
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Forwarded Demands</h2>
             <p className="text-muted-foreground">
-              Review demands forwarded by MLAs that require your approval
+              Review demands forwarded by MLAs for final approval
             </p>
           </div>
           <Button variant="outline" onClick={() => navigate('/officer')}>
@@ -180,7 +279,7 @@ const OfficerPendingDemands = () => {
           <CardHeader>
             <CardTitle>Forwarded Demands</CardTitle>
             <CardDescription>
-              {filteredDemands.length} demands requiring your approval
+              {isLoading ? 'Loading demands...' : `${filteredDemands.length} demands requiring your review`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -189,14 +288,23 @@ const OfficerPendingDemands = () => {
                 <TableRow>
                   <TableHead>Title</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead>Forwarded By</TableHead>
+                  <TableHead>Proposer</TableHead>
+                  <TableHead>MLA</TableHead>
                   <TableHead>Votes</TableHead>
-                  <TableHead>Submitted</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredDemands.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      <div className="flex justify-center items-center">
+                        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                        <span>Loading demands...</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredDemands.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center">
                       No forwarded demands found
@@ -207,9 +315,9 @@ const OfficerPendingDemands = () => {
                     <TableRow key={demand.id}>
                       <TableCell className="font-medium">{demand.title}</TableCell>
                       <TableCell>{demand.categoryName}</TableCell>
+                      <TableCell>{demand.proposerName}</TableCell>
                       <TableCell>{demand.mlaName}</TableCell>
                       <TableCell>{demand.voteCount}</TableCell>
-                      <TableCell>{new Date(demand.submissionDate).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right space-x-2">
                         <Button 
                           variant="ghost"
@@ -252,7 +360,7 @@ const OfficerPendingDemands = () => {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
+              <CardTitle className="text-sm font-medium">Pending Reviews</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{demands.length}</div>
@@ -261,15 +369,10 @@ const OfficerPendingDemands = () => {
           
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Blockchain Verification Status</CardTitle>
+              <CardTitle className="text-sm font-medium">Average Processing Time</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center">
-                <div className="text-2xl font-bold">Secure</div>
-                <Badge className="ml-2 bg-green-100 text-green-800 border-green-300">
-                  Verified
-                </Badge>
-              </div>
+              <div className="text-2xl font-bold">2.4 days</div>
             </CardContent>
           </Card>
           
@@ -278,7 +381,7 @@ const OfficerPendingDemands = () => {
               <CardTitle className="text-sm font-medium">Approval Rate</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">72%</div>
+              <div className="text-2xl font-bold">73%</div>
             </CardContent>
           </Card>
         </div>

@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Card, 
   CardContent, 
@@ -10,18 +10,68 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Transaction } from "@/types";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { useBlockchain } from "@/hooks/useBlockchain";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TransactionViewerProps {
-  transactions: Transaction[];
+  transactions?: Transaction[];
+  demandId: string;
   demandHash?: string;
   className?: string;
 }
 
-const TransactionViewer = ({ transactions, demandHash, className = "" }: TransactionViewerProps) => {
-  const { verifyBlockchainTransaction, isVerifying, verificationResult } = useBlockchain();
+const TransactionViewer = ({ transactions: initialTransactions, demandId, demandHash, className = "" }: TransactionViewerProps) => {
+  const { verifyBlockchainTransaction, isVerifying, verificationResult, loadTransactions } = useBlockchain();
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions || []);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  
+  // Load transactions when demandId changes
+  useEffect(() => {
+    if (demandId) {
+      fetchTransactions();
+    }
+  }, [demandId]);
+  
+  // Set up real-time listener for this demand's transactions
+  useEffect(() => {
+    if (!demandId) return;
+    
+    const channel = supabase
+      .channel(`demand-${demandId}-transactions`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'transactions',
+        filter: `demandId=eq.${demandId}` 
+      }, (payload) => {
+        const newTransaction = payload.new as Transaction;
+        setTransactions(prev => {
+          // Check if we already have this transaction to avoid duplicates
+          const exists = prev.some(t => t.id === newTransaction.id);
+          if (!exists) {
+            return [...prev, newTransaction];
+          }
+          return prev;
+        });
+      })
+      .subscribe();
+      
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [demandId]);
+
+  const fetchTransactions = async () => {
+    setIsLoading(true);
+    try {
+      const fetchedTransactions = await loadTransactions(demandId);
+      setTransactions(fetchedTransactions);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   const handleVerifyTransaction = async (transaction: Transaction) => {
     setVerifyingId(transaction.id);
@@ -41,10 +91,26 @@ const TransactionViewer = ({ transactions, demandHash, className = "" }: Transac
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle>Blockchain Transaction History</CardTitle>
-        <CardDescription>
-          View and verify all transactions related to this demand
-        </CardDescription>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle>Blockchain Transaction History</CardTitle>
+            <CardDescription>
+              View and verify all transactions related to this demand
+            </CardDescription>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={fetchTransactions}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-5 w-5" />
+            )}
+          </Button>
+        </div>
       </CardHeader>
       
       <CardContent className="space-y-6">
@@ -60,7 +126,7 @@ const TransactionViewer = ({ transactions, demandHash, className = "" }: Transac
           
           {transactions.length === 0 ? (
             <div className="rounded-md border bg-slate-50 p-4 text-center text-muted-foreground">
-              No transactions found
+              {isLoading ? "Loading transactions..." : "No transactions found"}
             </div>
           ) : (
             transactions.map((transaction, index) => (
