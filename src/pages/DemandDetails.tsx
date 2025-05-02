@@ -11,8 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Demand, DemandStatus, Transaction } from "@/types";
 import { ArrowLeft, CheckCircle, Clock, FileDown, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
-import { useBlockchain } from "@/hooks/useBlockchain";
-import TransactionViewer from "@/components/TransactionViewer";
+import { createTransaction, verifyTransaction } from "@/lib/blockchain";
 
 // Mock demand details for the demo
 const mockDemand: Demand = {
@@ -48,12 +47,13 @@ const DemandDetails = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { createBlockchainTransaction } = useBlockchain();
   
   const [demand] = useState<Demand>(mockDemand); // In real app, would fetch based on ID
   const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
   const [notes, setNotes] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<boolean | null>(null);
 
   const getStatusBadge = (status: DemandStatus) => {
     switch (status) {
@@ -106,7 +106,7 @@ const DemandDetails = () => {
       
       // Create a blockchain transaction
       const previousHash = transactions[transactions.length - 1].dataHash;
-      const transaction = createBlockchainTransaction(
+      const transaction = createTransaction(
         demand.id,
         user?.id || "",
         user?.name || "",
@@ -135,6 +135,46 @@ const DemandDetails = () => {
       toast.error(`Failed to ${action} demand. Please try again.`);
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleVerifyTransaction = async (transaction: Transaction) => {
+    setIsVerifying(true);
+    setVerificationResult(null);
+    
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Find the previous transaction to get its hash
+      const transactionIndex = transactions.findIndex(t => t.id === transaction.id);
+      const previousHash = transactionIndex > 0 
+        ? transactions[transactionIndex - 1].dataHash 
+        : '0';
+      
+      // Verify the transaction
+      const result = verifyTransaction(
+        transaction.id,
+        transaction.demandId,
+        transaction.userId,
+        transaction.action,
+        transaction.timestamp,
+        previousHash,
+        transaction.dataHash
+      );
+      
+      setVerificationResult(result);
+      
+      if (result) {
+        toast.success("Transaction verified successfully");
+      } else {
+        toast.error("Transaction verification failed - data integrity compromised");
+      }
+    } catch (error) {
+      console.error("Error verifying transaction:", error);
+      toast.error("Failed to verify transaction");
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -340,10 +380,91 @@ const DemandDetails = () => {
           
           {/* Blockchain Tab */}
           <TabsContent value="blockchain" className="space-y-4">
-            <TransactionViewer 
-              transactions={transactions} 
-              demandHash={demand.hash}
-            />
+            <Card>
+              <CardHeader>
+                <CardTitle>Blockchain Transaction History</CardTitle>
+                <CardDescription>
+                  View and verify all transactions related to this demand
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent className="space-y-6">
+                <div className="rounded-md border p-4">
+                  <h3 className="mb-2 font-medium">Demand Hash</h3>
+                  <div className="font-mono text-sm break-all">{demand.hash}</div>
+                </div>
+                
+                <div className="space-y-4">
+                  <h3 className="font-medium">Transaction Log</h3>
+                  
+                  {transactions.map((transaction, index) => (
+                    <div 
+                      key={transaction.id} 
+                      className="rounded-md border bg-slate-50 p-4"
+                    >
+                      <div className="mb-2 flex items-center justify-between">
+                        <h4 className="font-medium">{transaction.action}</h4>
+                        {verificationResult !== null && transactions[index].id === transaction.id && (
+                          <Badge 
+                            className={verificationResult ? "bg-green-100 text-green-800 border-green-300" : "bg-red-100 text-red-800 border-red-300"}
+                          >
+                            {verificationResult ? "Verified" : "Verification Failed"}
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <div className="mb-4 grid gap-2 text-sm sm:grid-cols-2">
+                        <div>
+                          <span className="font-medium">Transaction ID:</span> 
+                          <div className="font-mono text-xs">{transaction.id}</div>
+                        </div>
+                        <div>
+                          <span className="font-medium">Timestamp:</span> 
+                          <div>{new Date(transaction.timestamp).toLocaleString()}</div>
+                        </div>
+                        <div>
+                          <span className="font-medium">User:</span> 
+                          <div>{transaction.userName}</div>
+                        </div>
+                        <div>
+                          <span className="font-medium">Status Change:</span> 
+                          <div>
+                            {transaction.previousStatus || "None"} → {transaction.newStatus}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="mb-2">
+                        <span className="font-medium">Data Hash:</span>
+                        <div className="font-mono text-xs break-all mt-1">{transaction.dataHash}</div>
+                      </div>
+                      
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-2"
+                        onClick={() => handleVerifyTransaction(transaction)}
+                        disabled={isVerifying}
+                      >
+                        {isVerifying && transactions[index].id === transaction.id ? (
+                          <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                        ) : null}
+                        Verify Transaction
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="rounded-md bg-blue-50 p-4 text-sm text-blue-800">
+                  <h3 className="mb-2 font-medium">About Blockchain Verification</h3>
+                  <p>
+                    Each transaction creates a unique hash based on the demand data and previous transaction, 
+                    forming an immutable chain. Verification checks if the stored hash matches a recalculation 
+                    of the hash using the original data, confirming data integrity.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

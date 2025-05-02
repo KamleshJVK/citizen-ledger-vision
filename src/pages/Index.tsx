@@ -50,7 +50,7 @@ const Index = () => {
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             
-            {/* {!user && (
+            {!user && (
               <Button
                 variant="outline"
                 className="border-white px-8 py-6 text-lg font-semibold text-white hover:bg-white/10"
@@ -58,7 +58,7 @@ const Index = () => {
               >
                 Sign In
               </Button>
-            )} */}
+            )}
           </div>
           
           {/* Blockchain animation */}

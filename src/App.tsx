@@ -1,10 +1,10 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
-import { DataProvider } from "@/context/DataContext";
 
 // Pages
 import Index from "./pages/Index";
@@ -32,82 +32,80 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <DataProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              
-              {/* Citizen Routes */}
-              <Route 
-                path="/citizen/*" 
-                element={
-                  <ProtectedRoute allowedRoles={["Common Citizen"]}>
-                    <Routes>
-                      <Route path="/" element={<CitizenDashboard />} />
-                      <Route path="/submit-demand" element={<SubmitDemand />} />
-                      <Route path="/demand/:id" element={<DemandDetails />} />
-                    </Routes>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              {/* MLA Routes */}
-              <Route 
-                path="/mla/*" 
-                element={
-                  <ProtectedRoute allowedRoles={["MLA"]}>
-                    <Routes>
-                      <Route path="/" element={<MLADashboard />} />
-                      <Route path="/pending" element={<MLAPendingDemands />} />
-                      <Route path="/demand/:id" element={<DemandDetails />} />
-                    </Routes>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              {/* Officer Routes */}
-              <Route 
-                path="/officer/*" 
-                element={
-                  <ProtectedRoute allowedRoles={["Higher Public Officer"]}>
-                    <Routes>
-                      <Route path="/" element={<OfficerDashboard />} />
-                      <Route path="/pending" element={<OfficerPendingDemands />} />
-                      <Route path="/policies" element={<OfficerPolicies />} />
-                      <Route path="/demand/:id" element={<DemandDetails />} />
-                    </Routes>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              {/* Admin Routes */}
-              <Route 
-                path="/admin/*" 
-                element={
-                  <ProtectedRoute allowedRoles={["Admin"]}>
-                    <Routes>
-                      <Route path="/" element={<AdminDashboard />} />
-                      <Route path="/users" element={<AdminUsers />} />
-                      <Route path="/demands" element={<AdminDemands />} />
-                      <Route path="/settings" element={<AdminSettings />} />
-                    </Routes>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </DataProvider>
-    </AuthProvider>
+    <TooltipProvider>
+      <AuthProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            
+            {/* Citizen Routes */}
+            <Route 
+              path="/citizen/*" 
+              element={
+                <ProtectedRoute allowedRoles={["Common Citizen"]}>
+                  <Routes>
+                    <Route path="/" element={<CitizenDashboard />} />
+                    <Route path="/submit-demand" element={<SubmitDemand />} />
+                    <Route path="/demand/:id" element={<DemandDetails />} />
+                  </Routes>
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* MLA Routes */}
+            <Route 
+              path="/mla/*" 
+              element={
+                <ProtectedRoute allowedRoles={["MLA"]}>
+                  <Routes>
+                    <Route path="/" element={<MLADashboard />} />
+                    <Route path="/pending" element={<MLAPendingDemands />} />
+                    <Route path="/demand/:id" element={<DemandDetails />} />
+                  </Routes>
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Officer Routes */}
+            <Route 
+              path="/officer/*" 
+              element={
+                <ProtectedRoute allowedRoles={["Higher Public Officer"]}>
+                  <Routes>
+                    <Route path="/" element={<OfficerDashboard />} />
+                    <Route path="/pending" element={<OfficerPendingDemands />} />
+                    <Route path="/policies" element={<OfficerPolicies />} />
+                    <Route path="/demand/:id" element={<DemandDetails />} />
+                  </Routes>
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Admin Routes */}
+            <Route 
+              path="/admin/*" 
+              element={
+                <ProtectedRoute allowedRoles={["Admin"]}>
+                  <Routes>
+                    <Route path="/" element={<AdminDashboard />} />
+                    <Route path="/users" element={<AdminUsers />} />
+                    <Route path="/demands" element={<AdminDemands />} />
+                    <Route path="/settings" element={<AdminSettings />} />
+                  </Routes>
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </TooltipProvider>
   </QueryClientProvider>
 );
 
