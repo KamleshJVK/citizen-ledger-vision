@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -9,9 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Demand, DemandStatus, Transaction } from "@/types";
-import { ArrowLeft, CheckCircle, Clock, FileDown, Loader2, X } from "lucide-react";
+import { ArrowLeft, CheckCircle, Clock, FileDown, Loader, X } from "lucide-react";
 import { toast } from "sonner";
-import { createTransaction, verifyTransaction } from "@/lib/blockchain";
+import TransactionViewer from "@/components/TransactionViewer";
+import { useBlockchain } from "@/hooks/useBlockchain";
 
 // Mock demand details for the demo
 const mockDemand: Demand = {
@@ -47,13 +47,26 @@ const DemandDetails = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { createTransaction, getTransactions, isLoading: isBlockchainLoading } = useBlockchain();
   
   const [demand] = useState<Demand>(mockDemand); // In real app, would fetch based on ID
   const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
   const [notes, setNotes] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [verificationResult, setVerificationResult] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // In a real app, this would fetch transactions from the blockchain
+    const fetchTransactions = async () => {
+      if (id) {
+        const txs = await getTransactions(id);
+        if (txs.length > 0) {
+          setTransactions(txs);
+        }
+      }
+    };
+    
+    fetchTransactions();
+  }, [id, getTransactions]);
 
   const getStatusBadge = (status: DemandStatus) => {
     switch (status) {
@@ -73,17 +86,16 @@ const DemandDetails = () => {
   };
 
   const handleAction = async (action: 'approve' | 'reject' | 'forward') => {
+    if (!user || !id) return;
+    
     setIsProcessing(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
+      // Determine new status and transaction action based on user role and action
       let newStatus: DemandStatus;
       let transactionAction: Transaction['action'];
       
-      // Determine new status and transaction action based on user role and action
-      if (user?.role === 'MLA') {
+      if (user.role === 'MLA') {
         if (action === 'approve') {
           newStatus = 'Reviewed';
           transactionAction = 'Demand Reviewed';
@@ -105,26 +117,26 @@ const DemandDetails = () => {
       }
       
       // Create a blockchain transaction
-      const previousHash = transactions[transactions.length - 1].dataHash;
-      const transaction = createTransaction(
-        demand.id,
-        user?.id || "",
-        user?.name || "",
+      const previousHash = transactions.length > 0 ? transactions[transactions.length - 1].dataHash : '0';
+      const transaction = await createTransaction(
+        id,
         transactionAction,
         demand.status,
         newStatus,
         previousHash
       );
       
-      // Update transactions
-      setTransactions([...transactions, transaction]);
+      // Update transactions list
+      setTransactions(prevTransactions => [...prevTransactions, transaction]);
       
-      // Show success message based on action
+      // Show success message
       toast.success(`Demand ${action === 'forward' ? 'forwarded' : action + 'd'} successfully`);
+      
+      // In a real app, we would update the demand status in the database here
       
       // Navigate back to dashboard after a short delay
       setTimeout(() => {
-        if (user?.role === 'MLA') {
+        if (user.role === 'MLA') {
           navigate("/mla");
         } else {
           navigate("/officer");
@@ -135,46 +147,6 @@ const DemandDetails = () => {
       toast.error(`Failed to ${action} demand. Please try again.`);
     } finally {
       setIsProcessing(false);
-    }
-  };
-
-  const handleVerifyTransaction = async (transaction: Transaction) => {
-    setIsVerifying(true);
-    setVerificationResult(null);
-    
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Find the previous transaction to get its hash
-      const transactionIndex = transactions.findIndex(t => t.id === transaction.id);
-      const previousHash = transactionIndex > 0 
-        ? transactions[transactionIndex - 1].dataHash 
-        : '0';
-      
-      // Verify the transaction
-      const result = verifyTransaction(
-        transaction.id,
-        transaction.demandId,
-        transaction.userId,
-        transaction.action,
-        transaction.timestamp,
-        previousHash,
-        transaction.dataHash
-      );
-      
-      setVerificationResult(result);
-      
-      if (result) {
-        toast.success("Transaction verified successfully");
-      } else {
-        toast.error("Transaction verification failed - data integrity compromised");
-      }
-    } catch (error) {
-      console.error("Error verifying transaction:", error);
-      toast.error("Failed to verify transaction");
-    } finally {
-      setIsVerifying(false);
     }
   };
 
@@ -189,7 +161,7 @@ const DemandDetails = () => {
             onClick={() => handleAction('reject')}
             disabled={isProcessing}
           >
-            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+            {isProcessing ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
             Reject
           </Button>
           <Button 
@@ -198,7 +170,7 @@ const DemandDetails = () => {
             onClick={() => handleAction('forward')}
             disabled={isProcessing}
           >
-            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
+            {isProcessing ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
             Forward to Officer
           </Button>
           <Button 
@@ -206,7 +178,7 @@ const DemandDetails = () => {
             onClick={() => handleAction('approve')}
             disabled={isProcessing}
           >
-            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+            {isProcessing ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
             Approve
           </Button>
         </div>
@@ -222,7 +194,7 @@ const DemandDetails = () => {
             onClick={() => handleAction('reject')}
             disabled={isProcessing}
           >
-            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+            {isProcessing ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
             Reject
           </Button>
           <Button 
@@ -230,7 +202,7 @@ const DemandDetails = () => {
             onClick={() => handleAction('approve')}
             disabled={isProcessing}
           >
-            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+            {isProcessing ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
             Approve
           </Button>
         </div>
@@ -380,91 +352,11 @@ const DemandDetails = () => {
           
           {/* Blockchain Tab */}
           <TabsContent value="blockchain" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Blockchain Transaction History</CardTitle>
-                <CardDescription>
-                  View and verify all transactions related to this demand
-                </CardDescription>
-              </CardHeader>
-              
-              <CardContent className="space-y-6">
-                <div className="rounded-md border p-4">
-                  <h3 className="mb-2 font-medium">Demand Hash</h3>
-                  <div className="font-mono text-sm break-all">{demand.hash}</div>
-                </div>
-                
-                <div className="space-y-4">
-                  <h3 className="font-medium">Transaction Log</h3>
-                  
-                  {transactions.map((transaction, index) => (
-                    <div 
-                      key={transaction.id} 
-                      className="rounded-md border bg-slate-50 p-4"
-                    >
-                      <div className="mb-2 flex items-center justify-between">
-                        <h4 className="font-medium">{transaction.action}</h4>
-                        {verificationResult !== null && transactions[index].id === transaction.id && (
-                          <Badge 
-                            className={verificationResult ? "bg-green-100 text-green-800 border-green-300" : "bg-red-100 text-red-800 border-red-300"}
-                          >
-                            {verificationResult ? "Verified" : "Verification Failed"}
-                          </Badge>
-                        )}
-                      </div>
-                      
-                      <div className="mb-4 grid gap-2 text-sm sm:grid-cols-2">
-                        <div>
-                          <span className="font-medium">Transaction ID:</span> 
-                          <div className="font-mono text-xs">{transaction.id}</div>
-                        </div>
-                        <div>
-                          <span className="font-medium">Timestamp:</span> 
-                          <div>{new Date(transaction.timestamp).toLocaleString()}</div>
-                        </div>
-                        <div>
-                          <span className="font-medium">User:</span> 
-                          <div>{transaction.userName}</div>
-                        </div>
-                        <div>
-                          <span className="font-medium">Status Change:</span> 
-                          <div>
-                            {transaction.previousStatus || "None"} → {transaction.newStatus}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="mb-2">
-                        <span className="font-medium">Data Hash:</span>
-                        <div className="font-mono text-xs break-all mt-1">{transaction.dataHash}</div>
-                      </div>
-                      
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="mt-2"
-                        onClick={() => handleVerifyTransaction(transaction)}
-                        disabled={isVerifying}
-                      >
-                        {isVerifying && transactions[index].id === transaction.id ? (
-                          <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                        ) : null}
-                        Verify Transaction
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="rounded-md bg-blue-50 p-4 text-sm text-blue-800">
-                  <h3 className="mb-2 font-medium">About Blockchain Verification</h3>
-                  <p>
-                    Each transaction creates a unique hash based on the demand data and previous transaction, 
-                    forming an immutable chain. Verification checks if the stored hash matches a recalculation 
-                    of the hash using the original data, confirming data integrity.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <TransactionViewer 
+              transactions={transactions} 
+              demandId={id || ''}
+              demandHash={demand.hash} 
+            />
           </TabsContent>
         </Tabs>
       </div>

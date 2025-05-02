@@ -76,7 +76,7 @@ export function createTransaction(
   previousStatus: DemandStatus | null,
   newStatus: DemandStatus,
   previousHash: string = '0'
-) {
+): Transaction {
   const transactionId = generateTransactionId();
   const timestamp = new Date().toISOString();
   
@@ -100,6 +100,19 @@ export function createTransaction(
     newStatus,
     dataHash
   };
+}
+
+// Define Transaction type for clear return type
+export interface Transaction {
+  id: string;
+  demandId: string;
+  userId: string;
+  userName: string;
+  action: TransactionAction;
+  timestamp: string;
+  previousStatus: DemandStatus | null;
+  newStatus: DemandStatus;
+  dataHash: string;
 }
 
 // Verify a transaction hash

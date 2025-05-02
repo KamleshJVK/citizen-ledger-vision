@@ -1,4 +1,5 @@
 
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -13,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Demand, DemandStatus } from "@/types";
-import { CheckCircle, ClipboardList, FileText } from "lucide-react";
+import { CheckCircle, ClipboardList, FileText, Loader } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -22,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { supabase } from "@/integrations/supabase/client";
 
 // Mock data for Officer pending demands
 const forwardedDemands: Demand[] = [
@@ -90,6 +92,121 @@ const forwardedDemands: Demand[] = [
 const OfficerPendingDemands = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [demands, setDemands] = useState<Demand[]>(forwardedDemands);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchDemands = async () => {
+      setLoading(true);
+      try {
+        // In a real app, this would fetch from the database
+        // const { data, error } = await supabase
+        //   .from('demands')
+        //   .select('*')
+        //   .eq('status', 'Forwarded');
+        
+        // if (error) throw error;
+        // setDemands(data || []);
+        
+        // Using mock data for now
+        setDemands(forwardedDemands);
+      } catch (error) {
+        console.error("Error fetching demands:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDemands();
+
+    // Set up real-time subscription
+    const subscription = supabase
+      .channel('forwarded-demands')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'demands',
+        filter: 'status=eq.Forwarded'
+      }, payload => {
+        if (payload.new) {
+          // Convert from database format to app format
+          const newDemand = {
+            id: payload.new.id,
+            title: payload.new.title,
+            description: payload.new.description,
+            categoryId: payload.new.category_id,
+            categoryName: payload.new.category_name,
+            proposerId: payload.new.proposer_id,
+            proposerName: payload.new.proposer_name,
+            submissionDate: payload.new.submission_date,
+            status: payload.new.status as DemandStatus,
+            voteCount: payload.new.vote_count,
+            hash: payload.new.hash,
+            mlaId: payload.new.mla_id,
+            mlaName: payload.new.mla_name,
+            officerId: payload.new.officer_id,
+            officerName: payload.new.officer_name,
+            approvalDate: payload.new.approval_date,
+            rejectionDate: payload.new.rejection_date,
+          };
+
+          if (payload.eventType === 'INSERT') {
+            setDemands(prev => [...prev, newDemand]);
+          } else if (payload.eventType === 'UPDATE') {
+            setDemands(prev => 
+              prev.map(demand => demand.id === newDemand.id ? newDemand : demand)
+            );
+          } else if (payload.eventType === 'DELETE') {
+            setDemands(prev => 
+              prev.filter(demand => demand.id !== payload.old.id)
+            );
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleAction = async (demand: Demand, action: 'approve' | 'reject') => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      let newStatus: DemandStatus;
+      let updateData: any = {
+        officer_id: user.id,
+        officer_name: user.name,
+      };
+      
+      if (action === 'approve') {
+        newStatus = 'Approved';
+        updateData.status = newStatus;
+        updateData.approval_date = new Date().toISOString();
+      } else { // reject
+        newStatus = 'Rejected';
+        updateData.status = newStatus;
+        updateData.rejection_date = new Date().toISOString();
+      }
+      
+      // Update the demand in the database
+      const { error } = await supabase
+        .from('demands')
+        .update(updateData)
+        .eq('id', demand.id);
+      
+      if (error) throw error;
+      
+      // Navigate to detail view
+      navigate(`/officer/demand/${demand.id}`);
+    } catch (error) {
+      console.error(`Error ${action}ing demand:`, error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getStatusBadge = (status: DemandStatus) => {
     switch (status) {
@@ -128,49 +245,55 @@ const OfficerPendingDemands = () => {
           <CardHeader>
             <CardTitle>Forwarded Demands</CardTitle>
             <CardDescription>
-              You have {forwardedDemands.length} demands waiting for your final approval
+              You have {demands.length} demands waiting for your final approval
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Forwarded By</TableHead>
-                  <TableHead>Submission Date</TableHead>
-                  <TableHead>Votes</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {forwardedDemands.map((demand) => (
-                  <TableRow key={demand.id}>
-                    <TableCell className="font-medium">{demand.title}</TableCell>
-                    <TableCell>{demand.categoryName}</TableCell>
-                    <TableCell>{demand.mlaName}</TableCell>
-                    <TableCell>{new Date(demand.submissionDate).toLocaleDateString()}</TableCell>
-                    <TableCell>{demand.voteCount}</TableCell>
-                    <TableCell>{getStatusBadge(demand.status)}</TableCell>
-                    <TableCell>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => navigate(`/officer/demand/${demand.id}`)}
-                      >
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        Review
-                      </Button>
-                    </TableCell>
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <Loader className="h-6 w-6 animate-spin" />
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Forwarded By</TableHead>
+                    <TableHead>Submission Date</TableHead>
+                    <TableHead>Votes</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Action</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {demands.map((demand) => (
+                    <TableRow key={demand.id}>
+                      <TableCell className="font-medium">{demand.title}</TableCell>
+                      <TableCell>{demand.categoryName}</TableCell>
+                      <TableCell>{demand.mlaName}</TableCell>
+                      <TableCell>{new Date(demand.submissionDate).toLocaleDateString()}</TableCell>
+                      <TableCell>{demand.voteCount}</TableCell>
+                      <TableCell>{getStatusBadge(demand.status)}</TableCell>
+                      <TableCell>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => navigate(`/officer/demand/${demand.id}`)}
+                        >
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          Review
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
           <CardFooter className="flex justify-between border-t px-6 py-4">
             <div className="text-xs text-muted-foreground">
-              Showing {forwardedDemands.length} of {forwardedDemands.length} demands
+              Showing {demands.length} of {demands.length} demands
             </div>
           </CardFooter>
         </Card>
