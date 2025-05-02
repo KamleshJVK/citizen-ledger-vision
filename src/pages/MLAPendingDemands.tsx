@@ -24,6 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 // Mock data for MLA pending demands
 const pendingDemands: Demand[] = [
@@ -92,18 +93,44 @@ const MLAPendingDemands = () => {
       setLoading(true);
       try {
         // In a real app, this would fetch from the database
+        // Use type assertion to work around TypeScript limitations with Supabase types
         // const { data, error } = await supabase
         //   .from('demands')
         //   .select('*')
-        //   .eq('status', 'Pending');
+        //   .eq('status', 'Pending') as any;
         
         // if (error) throw error;
-        // setDemands(data || []);
+        // if (data) {
+        //   const mappedDemands = data.map((item: any) => ({
+        //     id: item.id,
+        //     title: item.title,
+        //     description: item.description,
+        //     categoryId: item.category_id,
+        //     categoryName: item.category_name,
+        //     proposerId: item.proposer_id,
+        //     proposerName: item.proposer_name,
+        //     submissionDate: item.submission_date,
+        //     status: item.status as DemandStatus,
+        //     voteCount: item.vote_count,
+        //     hash: item.hash,
+        //     mlaId: item.mla_id,
+        //     mlaName: item.mla_name,
+        //     officerId: item.officer_id,
+        //     officerName: item.officer_name,
+        //     approvalDate: item.approval_date,
+        //     rejectionDate: item.rejection_date,
+        //   }));
+        //   setDemands(mappedDemands);
+        // } else {
+        //   // Using mock data as fallback
+        //   setDemands(pendingDemands);
+        // }
         
         // Using mock data for now
         setDemands(pendingDemands);
       } catch (error) {
         console.error("Error fetching demands:", error);
+        toast.error("Failed to fetch pending demands");
       } finally {
         setLoading(false);
       }
@@ -123,23 +150,23 @@ const MLAPendingDemands = () => {
         if (payload.new) {
           // Convert from database format to app format
           const newDemand = {
-            id: payload.new.id,
-            title: payload.new.title,
-            description: payload.new.description,
-            categoryId: payload.new.category_id,
-            categoryName: payload.new.category_name,
-            proposerId: payload.new.proposer_id,
-            proposerName: payload.new.proposer_name,
-            submissionDate: payload.new.submission_date,
-            status: payload.new.status as DemandStatus,
-            voteCount: payload.new.vote_count,
-            hash: payload.new.hash,
-            mlaId: payload.new.mla_id,
-            mlaName: payload.new.mla_name,
-            officerId: payload.new.officer_id,
-            officerName: payload.new.officer_name,
-            approvalDate: payload.new.approval_date,
-            rejectionDate: payload.new.rejection_date,
+            id: (payload.new as any).id,
+            title: (payload.new as any).title,
+            description: (payload.new as any).description,
+            categoryId: (payload.new as any).category_id,
+            categoryName: (payload.new as any).category_name,
+            proposerId: (payload.new as any).proposer_id,
+            proposerName: (payload.new as any).proposer_name,
+            submissionDate: (payload.new as any).submission_date,
+            status: (payload.new as any).status as DemandStatus,
+            voteCount: (payload.new as any).vote_count,
+            hash: (payload.new as any).hash,
+            mlaId: (payload.new as any).mla_id,
+            mlaName: (payload.new as any).mla_name,
+            officerId: (payload.new as any).officer_id,
+            officerName: (payload.new as any).officer_name,
+            approvalDate: (payload.new as any).approval_date,
+            rejectionDate: (payload.new as any).rejection_date,
           };
 
           if (payload.eventType === 'INSERT') {
@@ -150,7 +177,7 @@ const MLAPendingDemands = () => {
             );
           } else if (payload.eventType === 'DELETE') {
             setDemands(prev => 
-              prev.filter(demand => demand.id !== payload.old.id)
+              prev.filter(demand => demand.id !== (payload.old as any).id)
             );
           }
         }
@@ -186,10 +213,11 @@ const MLAPendingDemands = () => {
       }
       
       // Update the demand in the database
+      // Using type assertion to work around TypeScript limitations
       const { error } = await supabase
         .from('demands')
         .update(updateData)
-        .eq('id', demand.id);
+        .eq('id', demand.id) as any;
       
       if (error) throw error;
       
@@ -197,6 +225,7 @@ const MLAPendingDemands = () => {
       navigate(`/mla/demand/${demand.id}`);
     } catch (error) {
       console.error(`Error ${action}ing demand:`, error);
+      toast.error(`Failed to ${action} the demand`);
     } finally {
       setLoading(false);
     }

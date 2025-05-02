@@ -8,7 +8,6 @@ import {
   Transaction
 } from "@/lib/blockchain";
 import { DemandStatus, TransactionAction } from "@/types";
-import { Database } from "@/types/supabase";
 
 export const useBlockchain = () => {
   const { user } = useAuth();
@@ -17,16 +16,17 @@ export const useBlockchain = () => {
   const getTransactions = async (demandId: string): Promise<Transaction[]> => {
     try {
       setIsLoading(true);
+      // Use type assertion to work around TypeScript limitations with Supabase types
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
         .eq('demand_id', demandId)
-        .order('timestamp', { ascending: true });
+        .order('timestamp', { ascending: true }) as any;
 
       if (error) throw error;
 
       // Convert from database format to app format
-      return (data || []).map(tx => ({
+      return (data || []).map((tx: any) => ({
         id: tx.id,
         demandId: tx.demand_id,
         userId: tx.user_id,
@@ -71,7 +71,7 @@ export const useBlockchain = () => {
         previousHash
       );
 
-      // Save to database
+      // Save to database - using type assertion to work around TypeScript limitations
       const { error } = await supabase
         .from('transactions')
         .insert({
@@ -84,7 +84,7 @@ export const useBlockchain = () => {
           previous_status: transaction.previousStatus,
           new_status: transaction.newStatus,
           data_hash: transaction.dataHash
-        });
+        }) as any;
 
       if (error) throw error;
 
@@ -109,7 +109,7 @@ export const useBlockchain = () => {
         .eq('demand_id', transaction.demandId)
         .lt('timestamp', transaction.timestamp)
         .order('timestamp', { ascending: false })
-        .limit(1);
+        .limit(1) as any;
       
       const previousHash = prevTxs && prevTxs.length > 0 ? prevTxs[0].data_hash : '0';
       
