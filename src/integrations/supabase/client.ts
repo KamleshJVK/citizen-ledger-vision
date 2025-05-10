@@ -10,3 +10,11 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+// Types for our tables
+export type Tables = Database['public']['Tables'];
+export type DemandRow = Tables['demands']['Row'];
+export type DemandInsert = Tables['demands']['Insert'];
+export type DemandUpdate = Tables['demands']['Update'];
+export type TransactionRow = Tables['transactions']['Row'];
+export type TransactionInsert = Tables['transactions']['Insert'];

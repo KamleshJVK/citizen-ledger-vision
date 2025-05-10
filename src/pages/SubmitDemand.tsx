@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, FileUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createTransaction } from "@/lib/blockchain";
+import { supabase, DemandInsert } from "@/integrations/supabase/client";
+import { v4 as uuidv4 } from 'uuid';
 
 // Mock categories
 const categories = [
@@ -49,6 +51,12 @@ const SubmitDemand = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!user) {
+      toast.error("You must be logged in to submit a demand");
+      navigate("/login");
+      return;
+    }
+    
     if (!title || !description || !categoryId) {
       toast.error("Please fill in all required fields");
       return;
@@ -57,36 +65,76 @@ const SubmitDemand = () => {
     setIsSubmitting(true);
     
     try {
-      // Simulate API call with delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const demandId = `d_${uuidv4()}`;
       
-      // Create a new demand (this would typically be an API call)
-      const newDemand = {
-        id: `d_${Date.now()}`,
-        title,
-        description,
-        categoryId,
-        categoryName: categories.find(c => c.id === categoryId)?.name || "",
-        proposerId: user?.id || "",
-        proposerName: user?.name || "",
-        submissionDate: new Date().toISOString(),
-        status: "Pending" as const,
-        voteCount: 0,
-        hash: "hash_initial",
-      };
-      
-      // Simulate blockchain transaction
+      // Create a transaction hash
       const transaction = createTransaction(
-        newDemand.id,
-        user?.id || "",
-        user?.name || "",
+        demandId,
+        user.id,
+        user.name,
         "Demand Submitted",
         null,
         "Pending"
       );
       
-      // Update the hash in the demand
-      newDemand.hash = transaction.dataHash;
+      // Prepare the demand data
+      const newDemand: DemandInsert = {
+        id: demandId,
+        title,
+        description,
+        category_id: categoryId,
+        category_name: categories.find(c => c.id === categoryId)?.name || "",
+        proposer_id: user.id,
+        proposer_name: user.name,
+        submission_date: new Date().toISOString(),
+        status: "Pending",
+        vote_count: 0,
+        hash: transaction.dataHash,
+      };
+      
+      // Insert the demand into Supabase
+      const { error: demandError } = await supabase
+        .from('demands')
+        .insert(newDemand);
+      
+      if (demandError) {
+        throw new Error(`Error inserting demand: ${demandError.message}`);
+      }
+      
+      // Insert the transaction record
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          id: `t_${uuidv4()}`,
+          demand_id: demandId,
+          user_id: user.id,
+          user_name: user.name,
+          action: "Demand Submitted",
+          timestamp: new Date().toISOString(),
+          previous_status: null,
+          new_status: "Pending",
+          data_hash: transaction.dataHash
+        });
+      
+      if (transactionError) {
+        console.error("Error inserting transaction:", transactionError);
+        // Continue anyway since the demand was created successfully
+      }
+      
+      // Handle file uploads if there are any
+      if (documents.length > 0) {
+        // For each file, upload to Supabase storage
+        for (const file of documents) {
+          const { error: uploadError } = await supabase.storage
+            .from('demand-documents')
+            .upload(`${demandId}/${file.name}`, file);
+            
+          if (uploadError) {
+            console.error(`Error uploading file ${file.name}:`, uploadError);
+            // Continue with other files
+          }
+        }
+      }
       
       toast.success("Demand submitted successfully");
       navigate("/citizen");

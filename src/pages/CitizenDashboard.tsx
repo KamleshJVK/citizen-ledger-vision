@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -8,155 +7,320 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Demand, DemandStatus } from "@/types";
-import { FileText, PlusCircle } from "lucide-react";
-
-// Mock data for the demo
-const mockDemands: Demand[] = [
-  {
-    id: "1",
-    title: "Road Repair in Sector 7",
-    description: "The roads in Sector 7 are in poor condition and need immediate repair.",
-    categoryId: "1",
-    categoryName: "Infrastructure",
-    proposerId: "1",
-    proposerName: "John Citizen",
-    submissionDate: "2025-04-15T10:30:00Z",
-    status: "Pending",
-    voteCount: 24,
-    hash: "hash_a1b2c3d4"
-  },
-  {
-    id: "2",
-    title: "New Park Development",
-    description: "Develop a new public park in the eastern district with playground and walking trails.",
-    categoryId: "1",
-    categoryName: "Infrastructure",
-    proposerId: "1",
-    proposerName: "John Citizen",
-    submissionDate: "2025-04-10T14:15:00Z",
-    status: "Reviewed",
-    voteCount: 56,
-    mlaId: "2",
-    mlaName: "Mary MLA",
-    hash: "hash_e5f6g7h8"
-  },
-  {
-    id: "3",
-    title: "School Renovation",
-    description: "The public school in North District needs renovation and new facilities.",
-    categoryId: "2",
-    categoryName: "Education",
-    proposerId: "1",
-    proposerName: "John Citizen",
-    submissionDate: "2025-04-05T09:45:00Z",
-    status: "Forwarded",
-    voteCount: 87,
-    mlaId: "2",
-    mlaName: "Mary MLA",
-    hash: "hash_i9j0k1l2"
-  },
-  {
-    id: "4",
-    title: "Healthcare Center Upgradation",
-    description: "Upgrade the community healthcare center with modern equipment and facilities.",
-    categoryId: "3",
-    categoryName: "Healthcare",
-    proposerId: "1",
-    proposerName: "John Citizen",
-    submissionDate: "2025-03-28T11:20:00Z",
-    status: "Approved",
-    voteCount: 142,
-    mlaId: "2",
-    mlaName: "Mary MLA",
-    officerId: "3",
-    officerName: "Robert Officer",
-    approvalDate: "2025-04-15T16:30:00Z",
-    hash: "hash_m3n4o5p6"
-  },
-  {
-    id: "5",
-    title: "Public Library Expansion",
-    description: "Expand the central public library to include digital resources section.",
-    categoryId: "4",
-    categoryName: "Education",
-    proposerId: "1",
-    proposerName: "John Citizen",
-    submissionDate: "2025-03-20T13:10:00Z",
-    status: "Rejected",
-    voteCount: 67,
-    mlaId: "2",
-    mlaName: "Mary MLA",
-    rejectionDate: "2025-04-10T10:45:00Z",
-    hash: "hash_q7r8s9t0"
-  }
-];
-
-// Mock data for voting opportunities
-const votingOpportunities: Demand[] = [
-  {
-    id: "6",
-    title: "Community Solar Power Project",
-    description: "Implement solar panels in community buildings to reduce energy costs.",
-    categoryId: "5",
-    categoryName: "Environment",
-    proposerId: "7",
-    proposerName: "Sarah Johnson",
-    submissionDate: "2025-04-16T08:20:00Z",
-    status: "Voting Open",
-    voteCount: 48,
-    hash: "hash_u1v2w3x4"
-  },
-  {
-    id: "7",
-    title: "Public WiFi in Parks",
-    description: "Install free public WiFi across all major city parks.",
-    categoryId: "6",
-    categoryName: "Technology",
-    proposerId: "8",
-    proposerName: "Michael Lee",
-    submissionDate: "2025-04-14T16:40:00Z",
-    status: "Voting Open",
-    voteCount: 73,
-    hash: "hash_y5z6a7b8"
-  },
-  {
-    id: "8",
-    title: "Weekend Farmers Market",
-    description: "Establish a weekend farmers market to support local producers.",
-    categoryId: "7",
-    categoryName: "Community",
-    proposerId: "9",
-    proposerName: "Emma Wilson",
-    submissionDate: "2025-04-12T11:30:00Z",
-    status: "Voting Open",
-    voteCount: 91,
-    hash: "hash_c9d0e1f2"
-  }
-];
+import { FileText, PlusCircle, Loader } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { v4 as uuidv4 } from 'uuid';
 
 const CitizenDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  
+  // State for demands
+  const [myDemands, setMyDemands] = useState<Demand[]>([]);
+  const [votingOpportunities, setVotingOpportunities] = useState<Demand[]>([]);
   const [votedDemands, setVotedDemands] = useState<string[]>([]);
 
-  const handleVote = (demandId: string) => {
-    if (votedDemands.includes(demandId)) {
+  // Fetch demands and setup real-time subscriptions
+  useEffect(() => {
+    if (!user) return;
+    
+    // Fetch user's demands
+    const fetchMyDemands = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('demands')
+          .select('*')
+          .eq('proposer_id', user.id)
+          .order('submission_date', { ascending: false }) as any;
+          
+        if (error) throw error;
+        
+        if (data) {
+          const demands: Demand[] = data.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            categoryId: item.category_id,
+            categoryName: item.category_name,
+            proposerId: item.proposer_id,
+            proposerName: item.proposer_name,
+            submissionDate: item.submission_date,
+            status: item.status as DemandStatus,
+            voteCount: item.vote_count,
+            hash: item.hash,
+            mlaId: item.mla_id,
+            mlaName: item.mla_name,
+            officerId: item.officer_id,
+            officerName: item.officer_name,
+            approvalDate: item.approval_date,
+            rejectionDate: item.rejection_date,
+          }));
+          
+          setMyDemands(demands);
+        }
+      } catch (error) {
+        console.error("Error fetching user demands:", error);
+        toast.error("Failed to load your demands");
+      }
+    };
+    
+    // Fetch voting opportunities (demands with status "Voting Open")
+    const fetchVotingOpportunities = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('demands')
+          .select('*')
+          .eq('status', 'Voting Open')
+          .order('vote_count', { ascending: false }) as any;
+          
+        if (error) throw error;
+        
+        if (data) {
+          const demands: Demand[] = data.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            categoryId: item.category_id,
+            categoryName: item.category_name,
+            proposerId: item.proposer_id,
+            proposerName: item.proposer_name,
+            submissionDate: item.submission_date,
+            status: item.status as DemandStatus,
+            voteCount: item.vote_count,
+            hash: item.hash,
+            mlaId: item.mla_id,
+            mlaName: item.mla_name,
+            officerId: item.officer_id,
+            officerName: item.officer_name,
+            approvalDate: item.approval_date,
+            rejectionDate: item.rejection_date,
+          }));
+          
+          setVotingOpportunities(demands);
+        }
+      } catch (error) {
+        console.error("Error fetching voting opportunities:", error);
+        toast.error("Failed to load voting opportunities");
+      }
+    };
+    
+    // Fetch user's votes
+    const fetchUserVotes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('votes')
+          .select('demand_id')
+          .eq('user_id', user.id) as any;
+          
+        if (error) throw error;
+        
+        if (data) {
+          setVotedDemands(data.map((vote: any) => vote.demand_id));
+        }
+      } catch (error) {
+        console.error("Error fetching user votes:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    // Fetch all data
+    Promise.all([
+      fetchMyDemands(),
+      fetchVotingOpportunities(),
+      fetchUserVotes()
+    ]).finally(() => {
+      setLoading(false);
+    });
+    
+    // Set up real-time subscriptions
+    
+    // Subscription for user's demands
+    const myDemandsSubscription = supabase
+      .channel('my-demands-changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'demands',
+        filter: `proposer_id=eq.${user.id}`
+      }, payload => {
+        if (payload.new) {
+          const demandData = payload.new as any;
+          const demand: Demand = {
+            id: demandData.id,
+            title: demandData.title,
+            description: demandData.description,
+            categoryId: demandData.category_id,
+            categoryName: demandData.category_name,
+            proposerId: demandData.proposer_id,
+            proposerName: demandData.proposer_name,
+            submissionDate: demandData.submission_date,
+            status: demandData.status as DemandStatus,
+            voteCount: demandData.vote_count,
+            hash: demandData.hash,
+            mlaId: demandData.mla_id,
+            mlaName: demandData.mla_name,
+            officerId: demandData.officer_id,
+            officerName: demandData.officer_name,
+            approvalDate: demandData.approval_date,
+            rejectionDate: demandData.rejection_date,
+          };
+
+          if (payload.eventType === 'INSERT') {
+            setMyDemands(prev => [demand, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setMyDemands(prev => 
+              prev.map(d => d.id === demand.id ? demand : d)
+            );
+          } else if (payload.eventType === 'DELETE') {
+            setMyDemands(prev => 
+              prev.filter(d => d.id !== demandData.id)
+            );
+          }
+        }
+      })
+      .subscribe();
+    
+    // Subscription for voting opportunities
+    const votingSubscription = supabase
+      .channel('voting-changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'demands',
+        filter: 'status=eq.Voting Open'
+      }, payload => {
+        if (payload.new) {
+          const demandData = payload.new as any;
+          const demand: Demand = {
+            id: demandData.id,
+            title: demandData.title,
+            description: demandData.description,
+            categoryId: demandData.category_id,
+            categoryName: demandData.category_name,
+            proposerId: demandData.proposer_id,
+            proposerName: demandData.proposer_name,
+            submissionDate: demandData.submission_date,
+            status: demandData.status as DemandStatus,
+            voteCount: demandData.vote_count,
+            hash: demandData.hash,
+            mlaId: demandData.mla_id,
+            mlaName: demandData.mla_name,
+            officerId: demandData.officer_id,
+            officerName: demandData.officer_name,
+            approvalDate: demandData.approval_date,
+            rejectionDate: demandData.rejection_date,
+          };
+
+          if (payload.eventType === 'INSERT') {
+            setVotingOpportunities(prev => [demand, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setVotingOpportunities(prev => 
+              prev.map(d => d.id === demand.id ? demand : d)
+            );
+          } else if (payload.eventType === 'DELETE' || demandData.status !== 'Voting Open') {
+            setVotingOpportunities(prev => 
+              prev.filter(d => d.id !== demandData.id)
+            );
+          }
+        }
+      })
+      .subscribe();
+      
+    // Subscription for user votes
+    const votesSubscription = supabase
+      .channel('votes-changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'votes',
+        filter: `user_id=eq.${user.id}`
+      }, payload => {
+        if (payload.eventType === 'INSERT' && payload.new) {
+          setVotedDemands(prev => [...prev, (payload.new as any).demand_id]);
+        } else if (payload.eventType === 'DELETE' && payload.old) {
+          setVotedDemands(prev => 
+            prev.filter(id => id !== (payload.old as any).demand_id)
+          );
+        }
+      })
+      .subscribe();
+
+    // Cleanup function
+    return () => {
+      myDemandsSubscription.unsubscribe();
+      votingSubscription.unsubscribe();
+      votesSubscription.unsubscribe();
+    };
+  }, [user]);
+
+  const handleVote = async (demandId: string) => {
+    if (!user) {
+      toast.error("You must be logged in to vote");
       return;
     }
     
-    // In a real app, this would be an API call
-    setVotedDemands(prev => [...prev, demandId]);
+    if (votedDemands.includes(demandId)) {
+      toast.info("You have already voted for this demand");
+      return;
+    }
     
-    // Update the vote count in the UI
-    const updatedVotingOpportunities = votingOpportunities.map(demand => {
-      if (demand.id === demandId) {
-        return { ...demand, voteCount: demand.voteCount + 1 };
+    try {
+      // Insert vote into database
+      const { error } = await supabase
+        .from('votes')
+        .insert({
+          id: `v_${uuidv4()}`,
+          demand_id: demandId,
+          user_id: user.id,
+          vote_date: new Date().toISOString()
+        });
+        
+      if (error) throw error;
+      
+      // Increment vote count in the demand
+      const { error: updateError } = await supabase.rpc('increment_vote_count', {
+        demand_id: demandId
+      });
+      
+      if (updateError) {
+        // Handle RPC function missing by doing direct update
+        const { data: demand, error: fetchError } = await supabase
+          .from('demands')
+          .select('vote_count')
+          .eq('id', demandId)
+          .single() as any;
+          
+        if (fetchError) throw fetchError;
+        
+        const newVoteCount = (demand?.vote_count || 0) + 1;
+        
+        // Update the demand with the new vote count
+        const { error: directUpdateError } = await supabase
+          .from('demands')
+          .update({ vote_count: newVoteCount })
+          .eq('id', demandId);
+          
+        if (directUpdateError) throw directUpdateError;
       }
-      return demand;
-    });
-    
-    // We don't update the state here as this is just mock data
-    console.log("Updated vote count", updatedVotingOpportunities);
+      
+      toast.success("Vote submitted successfully");
+      
+      // Optimistically update the UI
+      setVotedDemands(prev => [...prev, demandId]);
+      setVotingOpportunities(prev => 
+        prev.map(demand => 
+          demand.id === demandId 
+            ? { ...demand, voteCount: demand.voteCount + 1 }
+            : demand
+        )
+      );
+    } catch (error) {
+      console.error("Error submitting vote:", error);
+      toast.error("Failed to submit vote. Please try again.");
+    }
   };
 
   const getStatusBadge = (status: DemandStatus) => {
@@ -175,6 +339,19 @@ const CitizenDashboard = () => {
         return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">Rejected</Badge>;
     }
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex h-[60vh] items-center justify-center">
+          <div className="text-center">
+            <Loader className="mx-auto h-8 w-8 animate-spin text-primary" />
+            <p className="mt-4 text-lg">Loading dashboard data...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -204,99 +381,117 @@ const CitizenDashboard = () => {
           
           {/* My Demands Tab */}
           <TabsContent value="my-demands" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {mockDemands.map((demand) => (
-                <Card key={demand.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between">
-                      <CardTitle className="text-lg">{demand.title}</CardTitle>
-                      {getStatusBadge(demand.status)}
-                    </div>
-                    <CardDescription>{demand.categoryName}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="line-clamp-2 text-sm text-gray-600">
-                      {demand.description}
-                    </p>
-                    <div className="mt-2 text-xs text-gray-500">
-                      <div>Submitted: {new Date(demand.submissionDate).toLocaleDateString()}</div>
-                      <div>Votes: {demand.voteCount}</div>
-                      
-                      {demand.mlaId && (
-                        <div className="mt-1">Reviewed by: {demand.mlaName}</div>
-                      )}
-                      
-                      {demand.officerId && (
-                        <div>Processed by: {demand.officerName}</div>
-                      )}
-                      
-                      {demand.approvalDate && (
-                        <div>Approved: {new Date(demand.approvalDate).toLocaleDateString()}</div>
-                      )}
-                      
-                      {demand.rejectionDate && (
-                        <div>Rejected: {new Date(demand.rejectionDate).toLocaleDateString()}</div>
-                      )}
-                    </div>
-                  </CardContent>
-                  <CardFooter>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="w-full"
-                      onClick={() => navigate(`/citizen/demand/${demand.id}`)}
-                    >
-                      <FileText className="mr-2 h-4 w-4" />
-                      View Details
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
+            {myDemands.length === 0 ? (
+              <Card className="p-8 text-center">
+                <p className="text-muted-foreground">You haven't submitted any demands yet.</p>
+                <Button 
+                  className="mt-4" 
+                  onClick={() => navigate('/citizen/submit-demand')}
+                >
+                  Submit Your First Demand
+                </Button>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {myDemands.map((demand) => (
+                  <Card key={demand.id} className="hover:shadow-md transition-shadow">
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between">
+                        <CardTitle className="text-lg">{demand.title}</CardTitle>
+                        {getStatusBadge(demand.status)}
+                      </div>
+                      <CardDescription>{demand.categoryName}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="line-clamp-2 text-sm text-gray-600">
+                        {demand.description}
+                      </p>
+                      <div className="mt-2 text-xs text-gray-500">
+                        <div>Submitted: {new Date(demand.submissionDate).toLocaleDateString()}</div>
+                        <div>Votes: {demand.voteCount}</div>
+                        
+                        {demand.mlaId && (
+                          <div className="mt-1">Reviewed by: {demand.mlaName}</div>
+                        )}
+                        
+                        {demand.officerId && (
+                          <div>Processed by: {demand.officerName}</div>
+                        )}
+                        
+                        {demand.approvalDate && (
+                          <div>Approved: {new Date(demand.approvalDate).toLocaleDateString()}</div>
+                        )}
+                        
+                        {demand.rejectionDate && (
+                          <div>Rejected: {new Date(demand.rejectionDate).toLocaleDateString()}</div>
+                        )}
+                      </div>
+                    </CardContent>
+                    <CardFooter>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="w-full"
+                        onClick={() => navigate(`/citizen/demand/${demand.id}`)}
+                      >
+                        <FileText className="mr-2 h-4 w-4" />
+                        View Details
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
           
           {/* Vote Tab */}
           <TabsContent value="vote" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {votingOpportunities.map((demand) => (
-                <Card key={demand.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between">
-                      <CardTitle className="text-lg">{demand.title}</CardTitle>
-                      <Badge className="bg-blue-500">Voting Open</Badge>
-                    </div>
-                    <CardDescription>{demand.categoryName}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="line-clamp-2 text-sm text-gray-600">
-                      {demand.description}
-                    </p>
-                    <div className="mt-2 text-xs text-gray-500">
-                      <div>Proposed by: {demand.proposerName}</div>
-                      <div>Submitted: {new Date(demand.submissionDate).toLocaleDateString()}</div>
-                      <div>Current Votes: {votedDemands.includes(demand.id) ? demand.voteCount + 1 : demand.voteCount}</div>
-                    </div>
-                  </CardContent>
-                  <CardFooter className="flex flex-col space-y-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="w-full"
-                      onClick={() => navigate(`/citizen/demand/${demand.id}`)}
-                    >
-                      View Details
-                    </Button>
-                    <Button 
-                      className="w-full"
-                      disabled={votedDemands.includes(demand.id)}
-                      onClick={() => handleVote(demand.id)}
-                    >
-                      {votedDemands.includes(demand.id) ? "Voted" : "Vote"}
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
+            {votingOpportunities.length === 0 ? (
+              <Card className="p-8 text-center">
+                <p className="text-muted-foreground">There are no demands currently open for voting.</p>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {votingOpportunities.map((demand) => (
+                  <Card key={demand.id} className="hover:shadow-md transition-shadow">
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between">
+                        <CardTitle className="text-lg">{demand.title}</CardTitle>
+                        <Badge className="bg-blue-500">Voting Open</Badge>
+                      </div>
+                      <CardDescription>{demand.categoryName}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="line-clamp-2 text-sm text-gray-600">
+                        {demand.description}
+                      </p>
+                      <div className="mt-2 text-xs text-gray-500">
+                        <div>Proposed by: {demand.proposerName}</div>
+                        <div>Submitted: {new Date(demand.submissionDate).toLocaleDateString()}</div>
+                        <div>Current Votes: {demand.voteCount}</div>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="flex flex-col space-y-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="w-full"
+                        onClick={() => navigate(`/citizen/demand/${demand.id}`)}
+                      >
+                        View Details
+                      </Button>
+                      <Button 
+                        className="w-full"
+                        disabled={votedDemands.includes(demand.id)}
+                        onClick={() => handleVote(demand.id)}
+                      >
+                        {votedDemands.includes(demand.id) ? "Voted" : "Vote"}
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
 
@@ -307,7 +502,7 @@ const CitizenDashboard = () => {
               <CardTitle className="text-sm font-medium">Total Demands Submitted</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockDemands.length}</div>
+              <div className="text-2xl font-bold">{myDemands.length}</div>
             </CardContent>
           </Card>
           
@@ -317,7 +512,7 @@ const CitizenDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {mockDemands.filter(d => d.status === "Approved").length}
+                {myDemands.filter(d => d.status === "Approved").length}
               </div>
             </CardContent>
           </Card>
@@ -328,7 +523,7 @@ const CitizenDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {mockDemands.filter(d => ["Pending", "Reviewed", "Forwarded"].includes(d.status)).length}
+                {myDemands.filter(d => ["Pending", "Reviewed", "Forwarded"].includes(d.status)).length}
               </div>
             </CardContent>
           </Card>

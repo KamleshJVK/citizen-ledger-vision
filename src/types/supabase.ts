@@ -1,4 +1,6 @@
 
+import { DemandStatus, TransactionAction } from './index';
+
 export type Json =
   | string
   | number
@@ -10,38 +12,6 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
-      users: {
-        Row: {
-          id: string
-          name: string
-          email: string
-          role: string
-          aadhar_number?: string
-          public_key: string
-          private_key?: string
-          created_at: string
-        }
-        Insert: {
-          id: string
-          name: string
-          email: string
-          role: string
-          aadhar_number?: string
-          public_key: string
-          private_key?: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          email?: string
-          role?: string
-          aadhar_number?: string
-          public_key?: string
-          private_key?: string
-          created_at?: string
-        }
-      }
       demands: {
         Row: {
           id: string
@@ -52,18 +22,19 @@ export interface Database {
           proposer_id: string
           proposer_name: string
           submission_date: string
-          status: string
+          status: DemandStatus
           vote_count: number
-          mla_id?: string
-          mla_name?: string
-          officer_id?: string
-          officer_name?: string
-          approval_date?: string
-          rejection_date?: string
+          mla_id: string | null
+          mla_name: string | null
+          officer_id: string | null
+          officer_name: string | null
+          approval_date: string | null
+          rejection_date: string | null
           hash: string
+          created_at: string
         }
         Insert: {
-          id: string
+          id?: string
           title: string
           description: string
           category_id: string
@@ -71,15 +42,16 @@ export interface Database {
           proposer_id: string
           proposer_name: string
           submission_date?: string
-          status: string
-          vote_count: number
-          mla_id?: string
-          mla_name?: string
-          officer_id?: string
-          officer_name?: string
-          approval_date?: string
-          rejection_date?: string
+          status?: DemandStatus
+          vote_count?: number
+          mla_id?: string | null
+          mla_name?: string | null
+          officer_id?: string | null
+          officer_name?: string | null
+          approval_date?: string | null
+          rejection_date?: string | null
           hash: string
+          created_at?: string
         }
         Update: {
           id?: string
@@ -90,15 +62,16 @@ export interface Database {
           proposer_id?: string
           proposer_name?: string
           submission_date?: string
-          status?: string
+          status?: DemandStatus
           vote_count?: number
-          mla_id?: string
-          mla_name?: string
-          officer_id?: string
-          officer_name?: string
-          approval_date?: string
-          rejection_date?: string
+          mla_id?: string | null
+          mla_name?: string | null
+          officer_id?: string | null
+          officer_name?: string | null
+          approval_date?: string | null
+          rejection_date?: string | null
           hash?: string
+          created_at?: string
         }
       }
       transactions: {
@@ -107,33 +80,68 @@ export interface Database {
           demand_id: string
           user_id: string
           user_name: string
-          action: string
+          action: TransactionAction
           timestamp: string
-          previous_status: string | null
-          new_status: string
+          previous_status: DemandStatus | null
+          new_status: DemandStatus
           data_hash: string
+          created_at: string
         }
         Insert: {
-          id: string
+          id?: string
           demand_id: string
           user_id: string
           user_name: string
-          action: string
+          action: TransactionAction
           timestamp?: string
-          previous_status: string | null
-          new_status: string
+          previous_status?: DemandStatus | null
+          new_status: DemandStatus
           data_hash: string
+          created_at?: string
         }
         Update: {
           id?: string
           demand_id?: string
           user_id?: string
           user_name?: string
-          action?: string
+          action?: TransactionAction
           timestamp?: string
-          previous_status?: string | null
-          new_status?: string
+          previous_status?: DemandStatus | null
+          new_status?: DemandStatus
           data_hash?: string
+          created_at?: string
+        }
+      }
+      users: {
+        Row: {
+          id: string
+          name: string
+          email: string
+          role: string
+          aadhar_number: string | null
+          public_key: string
+          private_key: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          email: string
+          role: string
+          aadhar_number?: string | null
+          public_key: string
+          private_key?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          email?: string
+          role?: string
+          aadhar_number?: string | null
+          public_key?: string
+          private_key?: string | null
+          created_at?: string
         }
       }
       votes: {
@@ -142,23 +150,35 @@ export interface Database {
           demand_id: string
           user_id: string
           vote_date: string
+          created_at: string
         }
         Insert: {
-          id: string
+          id?: string
           demand_id: string
           user_id: string
           vote_date?: string
+          created_at?: string
         }
         Update: {
           id?: string
           demand_id?: string
           user_id?: string
           vote_date?: string
+          created_at?: string
         }
       }
     }
-    Views: {}
-    Functions: {}
-    Enums: {}
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
 }
