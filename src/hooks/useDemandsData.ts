@@ -70,7 +70,7 @@ export const useDemandsData = () => {
           .from('demands')
           .select('vote_count')
           .eq('id', demandId)
-          .single() as any;
+          .single();
           
         if (fetchError) throw fetchError;
         
@@ -113,7 +113,7 @@ export const useDemandsData = () => {
           .from('demands')
           .select('*')
           .eq('proposer_id', user.id)
-          .order('submission_date', { ascending: false }) as any;
+          .order('submission_date', { ascending: false });
           
         if (error) throw error;
         
@@ -133,7 +133,7 @@ export const useDemandsData = () => {
           .from('demands')
           .select('*')
           .eq('status', 'Voting Open')
-          .order('vote_count', { ascending: false }) as any;
+          .order('vote_count', { ascending: false });
           
         if (error) throw error;
         
@@ -152,12 +152,12 @@ export const useDemandsData = () => {
         const { data, error } = await supabase
           .from('votes')
           .select('demand_id')
-          .eq('user_id', user.id) as any;
+          .eq('user_id', user.id);
           
         if (error) throw error;
         
         if (data) {
-          setVotedDemands(data.map((vote: any) => vote.demand_id));
+          setVotedDemands(data.map(vote => vote.demand_id));
         }
       } catch (error) {
         console.error("Error fetching user votes:", error);
@@ -186,6 +186,8 @@ export const useDemandsData = () => {
         table: 'demands',
         filter: `proposer_id=eq.${user.id}`
       }, payload => {
+        console.log("Real-time update for my demands:", payload);
+        
         if (payload.new) {
           const demandData = payload.new as any;
           const demand = mapApiToDemand(demandData);
@@ -214,6 +216,8 @@ export const useDemandsData = () => {
         table: 'demands',
         filter: 'status=eq.Voting Open'
       }, payload => {
+        console.log("Real-time update for voting opportunities:", payload);
+        
         if (payload.new) {
           const demandData = payload.new as any;
           const demand = mapApiToDemand(demandData);
@@ -242,6 +246,8 @@ export const useDemandsData = () => {
         table: 'votes',
         filter: `user_id=eq.${user.id}`
       }, payload => {
+        console.log("Real-time update for user votes:", payload);
+        
         if (payload.eventType === 'INSERT' && payload.new) {
           setVotedDemands(prev => [...prev, (payload.new as any).demand_id]);
         } else if (payload.eventType === 'DELETE' && payload.old) {

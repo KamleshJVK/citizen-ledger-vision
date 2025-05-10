@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useNavigate, Link, useLocation } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,75 +8,26 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Lock, Mail } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const from = location.state?.from?.pathname || "/";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     
     try {
-      // Sign in with Supabase
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const success = await login(email, password);
       
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-      
-      if (data.user) {
-        // After successful authentication, fetch user details from the users table
-        const { data: userData, error: fetchError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
-        
-        if (fetchError || !userData) {
-          toast.error("Could not fetch user details");
-          return;
-        }
-        
-        // Store user data in local storage
-        localStorage.setItem('user', JSON.stringify(userData));
-        
-        // Call the existing login function to update context
-        const success = await login(email, password);
-        
-        if (success) {
-          // Redirect based on role
-          switch (userData.role) {
-            case "Common Citizen":
-              navigate("/citizen");
-              break;
-            case "MLA":
-              navigate("/mla");
-              break;
-            case "Higher Public Officer":
-              navigate("/officer");
-              break;
-            case "Admin":
-              navigate("/admin");
-              break;
-            default:
-              navigate(from);
-          }
-          
-          toast.success(`Welcome back, ${userData.name}!`);
-        }
+      if (success) {
+        // Auth context will handle the session and data fetching
+        // Redirect will happen based on the user role in the next useEffect
+        toast.success("Login successful");
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -176,15 +127,6 @@ const Login = () => {
                   Create one
                 </Link>
               </p>
-              
-              <div className="text-center text-xs text-gray-500">
-                <p>Demo accounts:</p>
-                <p>citizen@example.com (Citizen)</p>
-                <p>mla@example.com (MLA)</p>
-                <p>officer@example.com (Officer)</p>
-                <p>admin@example.com (Admin)</p>
-                <p className="mt-1">Use "password" for all demo accounts</p>
-              </div>
             </CardFooter>
           </form>
         </Card>

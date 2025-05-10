@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, User, Mail, Lock, CreditCard } from "lucide-react";
+import { toast } from "sonner";
 
 const Register = () => {
   const { register } = useAuth();
@@ -85,6 +86,9 @@ const Register = () => {
             navigate("/");
         }
       }
+    } catch (error) {
+      console.error("Registration error:", error);
+      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

@@ -1,7 +1,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserRole } from '@/types';
-import { generateKeyPair } from '@/lib/blockchain';
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface AuthContextType {
@@ -27,80 +27,148 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-// Mock users for demo
-const mockUsers: User[] = [
-  {
-    id: "1",
-    name: "John Citizen",
-    email: "citizen@example.com",
-    role: "Common Citizen",
-    publicKey: "pk_ctz_8f72bd9e3a4c1d5f",
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: "2",
-    name: "Mary MLA",
-    email: "mla@example.com",
-    role: "MLA",
-    publicKey: "pk_mla_6d2c8a9f1b7e4d3a",
-    privateKey: "sk_mla_5e3f7d8c9b2a1f6e",
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: "3",
-    name: "Robert Officer",
-    email: "officer@example.com",
-    role: "Higher Public Officer",
-    publicKey: "pk_off_4a7b3c8d9e2f1a5c",
-    privateKey: "sk_off_3e2a7c8b9d4f5a6e",
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: "4",
-    name: "Admin User",
-    email: "admin@example.com",
-    role: "Admin",
-    publicKey: "pk_adm_2c1d9e8f3a7b4c6d",
-    privateKey: "sk_adm_1a9c8b7d6e5f4a3c",
-    createdAt: new Date().toISOString()
-  }
-];
-
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // Check for existing session
   useEffect(() => {
-    // Check for existing logged in user in localStorage
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    setIsLoading(true);
+    
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          // Get user profile from the database
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (userError || !userData) {
+            setUser(null);
+            console.error("Error fetching user profile:", userError);
+          } else {
+            // Convert from database format to app format
+            const appUser: User = {
+              id: userData.id,
+              name: userData.name,
+              email: userData.email,
+              role: userData.role,
+              publicKey: userData.public_key,
+              createdAt: userData.created_at,
+              aadharNumber: userData.aadhar_number
+            };
+            
+            // Only include private key for certain roles
+            if (['MLA', 'Higher Public Officer', 'Admin'].includes(userData.role)) {
+              appUser.privateKey = userData.private_key;
+            }
+            
+            setUser(appUser);
+          }
+        }
+      } catch (error) {
+        console.error("Session check error:", error);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkSession();
+    
+    // Listen for auth state changes
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (userError || !userData) {
+          setUser(null);
+          console.error("Error fetching user profile:", userError);
+        } else {
+          // Convert from database format to app format
+          const appUser: User = {
+            id: userData.id,
+            name: userData.name,
+            email: userData.email,
+            role: userData.role,
+            publicKey: userData.public_key,
+            createdAt: userData.created_at,
+            aadharNumber: userData.aadhar_number
+          };
+          
+          // Only include private key for certain roles
+          if (['MLA', 'Higher Public Officer', 'Admin'].includes(userData.role)) {
+            appUser.privateKey = userData.private_key;
+          }
+          
+          setUser(appUser);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+      }
+    });
+    
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // This is a mock implementation - would connect to backend in real app
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       
-      const foundUser = mockUsers.find(u => u.email === email);
-      
-      if (!foundUser) {
-        toast.error("Invalid email or password");
+      if (error) {
+        toast.error(error.message);
         return false;
       }
       
-      // In a real app, we'd verify the password hash here
+      if (data.user) {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+          
+        if (userError || !userData) {
+          toast.error("Could not fetch user details");
+          return false;
+        }
+        
+        // Convert from database format to app format
+        const appUser: User = {
+          id: userData.id,
+          name: userData.name,
+          email: userData.email,
+          role: userData.role,
+          publicKey: userData.public_key,
+          createdAt: userData.created_at,
+          aadharNumber: userData.aadhar_number
+        };
+        
+        // Only include private key for certain roles
+        if (['MLA', 'Higher Public Officer', 'Admin'].includes(userData.role)) {
+          appUser.privateKey = userData.private_key;
+        }
+        
+        setUser(appUser);
+        toast.success(`Welcome back, ${userData.name}`);
+        return true;
+      }
       
-      // Store user in localStorage for persistence
-      localStorage.setItem('user', JSON.stringify(foundUser));
-      setUser(foundUser);
-      toast.success(`Welcome back, ${foundUser.name}`);
-      return true;
+      return false;
     } catch (error) {
       console.error("Login error:", error);
       toast.error("Login failed. Please try again.");
@@ -110,10 +178,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('user');
-    setUser(null);
-    toast.info("Successfully logged out");
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      toast.info("Successfully logged out");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Failed to log out");
+    }
   };
 
   const register = async (
@@ -126,21 +199,50 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Generate blockchain keys
+      const { publicKey, privateKey } = await import('@/lib/blockchain').then(
+        module => module.generateKeyPair(role)
+      );
       
-      // Check if user already exists
-      if (mockUsers.some(u => u.email === email)) {
-        toast.error("Email already registered");
+      // Register with Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      
+      if (error) {
+        toast.error(error.message);
         return false;
       }
       
-      // Generate blockchain keys
-      const { publicKey, privateKey } = generateKeyPair(role);
+      if (!data.user) {
+        toast.error("Registration failed");
+        return false;
+      }
       
-      // Create new user
+      // Create user profile in the database
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert({
+          id: data.user.id,
+          name,
+          email,
+          role,
+          public_key: publicKey,
+          private_key: ['MLA', 'Higher Public Officer', 'Admin'].includes(role) ? privateKey : null,
+          aadhar_number: aadharNumber,
+          created_at: new Date().toISOString()
+        });
+      
+      if (profileError) {
+        console.error("Error creating user profile:", profileError);
+        toast.error("Failed to create user profile");
+        return false;
+      }
+      
+      // Create user in the app state
       const newUser: User = {
-        id: `${mockUsers.length + 1}`,
+        id: data.user.id,
         name,
         email,
         role,
@@ -158,15 +260,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         newUser.aadharNumber = aadharNumber;
       }
       
-      // In a real app, we'd hash the password and send to the backend
-      
-      // For demo purposes, add to mock users
-      mockUsers.push(newUser);
-      
-      // Log the user in
-      localStorage.setItem('user', JSON.stringify(newUser));
       setUser(newUser);
-      
       toast.success("Registration successful!");
       return true;
     } catch (error) {
@@ -180,17 +274,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const resetPassword = async (email: string): Promise<boolean> => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/reset-password',
+      });
       
-      const userExists = mockUsers.some(u => u.email === email);
-      
-      if (!userExists) {
-        toast.error("Email not found");
+      if (error) {
+        toast.error(error.message);
         return false;
       }
-      
-      // In a real app, we'd send a password reset email
       
       toast.success("Password reset instructions sent to your email");
       return true;

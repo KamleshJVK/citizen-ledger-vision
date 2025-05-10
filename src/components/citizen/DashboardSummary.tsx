@@ -8,6 +8,9 @@ interface DashboardSummaryProps {
 }
 
 const DashboardSummary = ({ myDemands, votedDemands }: DashboardSummaryProps) => {
+  const approvedDemands = myDemands.filter(d => d.status === "Approved").length;
+  const inProgressDemands = myDemands.filter(d => ["Pending", "Reviewed", "Forwarded"].includes(d.status)).length;
+  
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card>
@@ -25,7 +28,7 @@ const DashboardSummary = ({ myDemands, votedDemands }: DashboardSummaryProps) =>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            {myDemands.filter(d => d.status === "Approved").length}
+            {approvedDemands}
           </div>
         </CardContent>
       </Card>
@@ -36,7 +39,7 @@ const DashboardSummary = ({ myDemands, votedDemands }: DashboardSummaryProps) =>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            {myDemands.filter(d => ["Pending", "Reviewed", "Forwarded"].includes(d.status)).length}
+            {inProgressDemands}
           </div>
         </CardContent>
       </Card>
