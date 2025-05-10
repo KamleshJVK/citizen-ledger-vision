@@ -21,8 +21,8 @@ export const supabase = createClient<Database>(
     },
     // Add global error handler for better debugging
     global: {
-      fetch: (...args) => {
-        return fetch(...args);
+      fetch: (url, options) => {
+        return fetch(url, options);
       },
     },
   }
