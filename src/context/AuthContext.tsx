@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserRole } from '@/types';
 import { generateKeyPair } from '@/lib/blockchain';
@@ -27,15 +26,16 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-// Mock users for demo
-const mockUsers: User[] = [
+// Mock users for demo — now include passwords
+const mockUsers: (User & { password: string })[] = [
   {
     id: "1",
     name: "John Citizen",
     email: "citizen@example.com",
     role: "Common Citizen",
     publicKey: "pk_ctz_8f72bd9e3a4c1d5f",
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    password: "54321"
   },
   {
     id: "2",
@@ -44,7 +44,8 @@ const mockUsers: User[] = [
     role: "MLA",
     publicKey: "pk_mla_6d2c8a9f1b7e4d3a",
     privateKey: "sk_mla_5e3f7d8c9b2a1f6e",
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    password: "54321"
   },
   {
     id: "3",
@@ -53,7 +54,8 @@ const mockUsers: User[] = [
     role: "Higher Public Officer",
     publicKey: "pk_off_4a7b3c8d9e2f1a5c",
     privateKey: "sk_off_3e2a7c8b9d4f5a6e",
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    password: "54321"
   },
   {
     id: "4",
@@ -62,7 +64,8 @@ const mockUsers: User[] = [
     role: "Admin",
     publicKey: "pk_adm_2c1d9e8f3a7b4c6d",
     privateKey: "sk_adm_1a9c8b7d6e5f4a3c",
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    password: "54321"
   }
 ];
 
@@ -71,7 +74,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Check for existing logged in user in localStorage
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
@@ -80,25 +82,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // This is a mock implementation - would connect to backend in real app
     setIsLoading(true);
-    
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const foundUser = mockUsers.find(u => u.email === email);
-      
+      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
+
+      const foundUser = mockUsers.find(u => u.email === email && u.password === password);
+
       if (!foundUser) {
         toast.error("Invalid email or password");
         return false;
       }
-      
-      // In a real app, we'd verify the password hash here
-      
-      // Store user in localStorage for persistence
-      localStorage.setItem('user', JSON.stringify(foundUser));
-      setUser(foundUser);
+
+      const { password: _, ...safeUser } = foundUser; // Don't store password
+      localStorage.setItem('user', JSON.stringify(safeUser));
+      setUser(safeUser);
       toast.success(`Welcome back, ${foundUser.name}`);
       return true;
     } catch (error) {
@@ -117,56 +114,46 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const register = async (
-    name: string, 
-    email: string, 
-    password: string, 
+    name: string,
+    email: string,
+    password: string,
     role: UserRole,
     aadharNumber?: string
   ): Promise<boolean> => {
     setIsLoading(true);
-    
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Check if user already exists
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       if (mockUsers.some(u => u.email === email)) {
         toast.error("Email already registered");
         return false;
       }
-      
-      // Generate blockchain keys
+
       const { publicKey, privateKey } = generateKeyPair(role);
-      
-      // Create new user
-      const newUser: User = {
+
+      const newUser: User & { password: string } = {
         id: `${mockUsers.length + 1}`,
         name,
         email,
         role,
         publicKey,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        password
       };
-      
-      // Add private key only for MLAs and Higher Public Officers
+
       if (role === 'MLA' || role === 'Higher Public Officer' || role === 'Admin') {
         newUser.privateKey = privateKey;
       }
-      
-      // Add aadhar number if provided
+
       if (aadharNumber) {
         newUser.aadharNumber = aadharNumber;
       }
-      
-      // In a real app, we'd hash the password and send to the backend
-      
-      // For demo purposes, add to mock users
+
       mockUsers.push(newUser);
-      
-      // Log the user in
-      localStorage.setItem('user', JSON.stringify(newUser));
-      setUser(newUser);
-      
+      const { password: _, ...safeUser } = newUser;
+      localStorage.setItem('user', JSON.stringify(safeUser));
+      setUser(safeUser);
+
       toast.success("Registration successful!");
       return true;
     } catch (error) {
@@ -180,18 +167,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const resetPassword = async (email: string): Promise<boolean> => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise(resolve => setTimeout(resolve, 500));
       const userExists = mockUsers.some(u => u.email === email);
-      
       if (!userExists) {
         toast.error("Email not found");
         return false;
       }
-      
-      // In a real app, we'd send a password reset email
-      
       toast.success("Password reset instructions sent to your email");
       return true;
     } catch (error) {
