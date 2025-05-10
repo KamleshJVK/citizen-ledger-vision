@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -8,6 +8,7 @@ import {
   Transaction
 } from "@/lib/blockchain";
 import { DemandStatus, TransactionAction } from "@/types";
+import { v4 as uuidv4 } from 'uuid';
 
 export const useBlockchain = () => {
   const { user } = useAuth();
@@ -16,12 +17,11 @@ export const useBlockchain = () => {
   const getTransactions = async (demandId: string): Promise<Transaction[]> => {
     try {
       setIsLoading(true);
-      // Use type assertion to work around TypeScript limitations with Supabase types
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
         .eq('demand_id', demandId)
-        .order('timestamp', { ascending: true }) as any;
+        .order('timestamp', { ascending: true });
 
       if (error) throw error;
 
@@ -46,7 +46,7 @@ export const useBlockchain = () => {
     }
   };
 
-  const createTransaction = async (
+  const createTransaction = useCallback(async (
     demandId: string,
     action: TransactionAction,
     previousStatus: DemandStatus | null,
@@ -71,20 +71,23 @@ export const useBlockchain = () => {
         previousHash
       );
 
-      // Save to database - using type assertion to work around TypeScript limitations
+      // Create transaction record for database
+      const transactionData = {
+        id: transaction.id || `t_${uuidv4()}`,
+        demand_id: transaction.demandId,
+        user_id: transaction.userId,
+        user_name: transaction.userName,
+        action: transaction.action,
+        timestamp: transaction.timestamp,
+        previous_status: transaction.previousStatus,
+        new_status: transaction.newStatus,
+        data_hash: transaction.dataHash
+      };
+
+      // Save to database
       const { error } = await supabase
         .from('transactions')
-        .insert({
-          id: transaction.id,
-          demand_id: transaction.demandId,
-          user_id: transaction.userId,
-          user_name: transaction.userName,
-          action: transaction.action,
-          timestamp: transaction.timestamp,
-          previous_status: transaction.previousStatus,
-          new_status: transaction.newStatus,
-          data_hash: transaction.dataHash
-        }) as any;
+        .insert(transactionData);
 
       if (error) throw error;
 
@@ -96,7 +99,7 @@ export const useBlockchain = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
   const verifyTransaction = async (transaction: Transaction): Promise<boolean> => {
     try {
@@ -109,7 +112,7 @@ export const useBlockchain = () => {
         .eq('demand_id', transaction.demandId)
         .lt('timestamp', transaction.timestamp)
         .order('timestamp', { ascending: false })
-        .limit(1) as any;
+        .limit(1);
       
       const previousHash = prevTxs && prevTxs.length > 0 ? prevTxs[0].data_hash : '0';
       
@@ -134,10 +137,33 @@ export const useBlockchain = () => {
     }
   };
 
+  // Set up a subscription to listen for transactions updates
+  const subscribeToTransactions = (demandId: string, callback: (transactions: Transaction[]) => void) => {
+    const subscription = supabase
+      .channel(`transactions-${demandId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'transactions',
+        filter: `demand_id=eq.${demandId}`
+      }, async (payload) => {
+        // When a transaction changes, fetch all transactions again
+        const updatedTransactions = await getTransactions(demandId);
+        callback(updatedTransactions);
+      })
+      .subscribe();
+
+    // Return unsubscribe function
+    return () => {
+      subscription.unsubscribe();
+    };
+  };
+
   return {
     isLoading,
     getTransactions,
     createTransaction,
-    verifyTransaction
+    verifyTransaction,
+    subscribeToTransactions
   };
 };

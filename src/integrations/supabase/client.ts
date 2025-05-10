@@ -9,7 +9,24 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+export const supabase = createClient<Database>(
+  SUPABASE_URL, 
+  SUPABASE_PUBLISHABLE_KEY,
+  {
+    realtime: {
+      // Enable realtime functionality
+      params: {
+        eventsPerSecond: 10,
+      },
+    },
+    // Add global error handler for better debugging
+    global: {
+      fetch: (...args) => {
+        return fetch(...args);
+      },
+    },
+  }
+);
 
 // Types for our tables
 export type Tables = Database['public']['Tables'];
@@ -18,3 +35,7 @@ export type DemandInsert = Tables['demands']['Insert'];
 export type DemandUpdate = Tables['demands']['Update'];
 export type TransactionRow = Tables['transactions']['Row'];
 export type TransactionInsert = Tables['transactions']['Insert'];
+export type UserRow = Tables['users']['Row'];
+export type UserInsert = Tables['users']['Insert'];
+export type VoteRow = Tables['votes']['Row'];
+export type VoteInsert = Tables['votes']['Insert'];

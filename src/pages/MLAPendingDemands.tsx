@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -85,49 +84,44 @@ const pendingDemands: Demand[] = [
 const MLAPendingDemands = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [demands, setDemands] = useState<Demand[]>(pendingDemands);
-  const [loading, setLoading] = useState(false);
+  const [demands, setDemands] = useState<Demand[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchDemands = async () => {
       setLoading(true);
       try {
-        // In a real app, this would fetch from the database
-        // Use type assertion to work around TypeScript limitations with Supabase types
-        // const { data, error } = await supabase
-        //   .from('demands')
-        //   .select('*')
-        //   .eq('status', 'Pending') as any;
+        // Fetch real data from Supabase
+        const { data, error } = await supabase
+          .from('demands')
+          .select('*')
+          .eq('status', 'Pending');
         
-        // if (error) throw error;
-        // if (data) {
-        //   const mappedDemands = data.map((item: any) => ({
-        //     id: item.id,
-        //     title: item.title,
-        //     description: item.description,
-        //     categoryId: item.category_id,
-        //     categoryName: item.category_name,
-        //     proposerId: item.proposer_id,
-        //     proposerName: item.proposer_name,
-        //     submissionDate: item.submission_date,
-        //     status: item.status as DemandStatus,
-        //     voteCount: item.vote_count,
-        //     hash: item.hash,
-        //     mlaId: item.mla_id,
-        //     mlaName: item.mla_name,
-        //     officerId: item.officer_id,
-        //     officerName: item.officer_name,
-        //     approvalDate: item.approval_date,
-        //     rejectionDate: item.rejection_date,
-        //   }));
-        //   setDemands(mappedDemands);
-        // } else {
-        //   // Using mock data as fallback
-        //   setDemands(pendingDemands);
-        // }
+        if (error) throw error;
         
-        // Using mock data for now
-        setDemands(pendingDemands);
+        if (data) {
+          const mappedDemands = data.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            categoryId: item.category_id,
+            categoryName: item.category_name,
+            proposerId: item.proposer_id,
+            proposerName: item.proposer_name,
+            submissionDate: item.submission_date,
+            status: item.status as DemandStatus,
+            voteCount: item.vote_count,
+            hash: item.hash,
+            mlaId: item.mla_id,
+            mlaName: item.mla_name,
+            officerId: item.officer_id,
+            officerName: item.officer_name,
+            approvalDate: item.approval_date,
+            rejectionDate: item.rejection_date,
+          }));
+          
+          setDemands(mappedDemands);
+        }
       } catch (error) {
         console.error("Error fetching demands:", error);
         toast.error("Failed to fetch pending demands");
@@ -138,15 +132,17 @@ const MLAPendingDemands = () => {
 
     fetchDemands();
 
-    // Set up real-time subscription
-    const subscription = supabase
-      .channel('demands-changes')
+    // Set up real-time subscription using separate channel to avoid conflicts
+    const pendingDemandsChannel = supabase
+      .channel('pending-demands-changes')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'demands',
         filter: 'status=eq.Pending'
       }, payload => {
+        console.log("Realtime update received:", payload);
+        
         if (payload.new) {
           // Convert from database format to app format
           const newDemand = {
@@ -171,6 +167,7 @@ const MLAPendingDemands = () => {
 
           if (payload.eventType === 'INSERT') {
             setDemands(prev => [...prev, newDemand]);
+            toast.info(`New demand submitted: ${newDemand.title}`);
           } else if (payload.eventType === 'UPDATE') {
             setDemands(prev => 
               prev.map(demand => demand.id === newDemand.id ? newDemand : demand)
@@ -180,12 +177,18 @@ const MLAPendingDemands = () => {
               prev.filter(demand => demand.id !== (payload.old as any).id)
             );
           }
+        } else if (payload.old && payload.eventType === 'DELETE') {
+          setDemands(prev => 
+            prev.filter(demand => demand.id !== (payload.old as any).id)
+          );
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Subscription status:", status);
+      });
 
     return () => {
-      subscription.unsubscribe();
+      pendingDemandsChannel.unsubscribe();
     };
   }, []);
 
@@ -194,7 +197,7 @@ const MLAPendingDemands = () => {
     
     setLoading(true);
     try {
-      let newStatus: DemandStatus;
+      let newStatus: DemandStatus = 'Pending'; // Initialize with a valid DemandStatus
       let updateData: any = {
         mla_id: user.id,
         mla_name: user.name,
@@ -213,13 +216,14 @@ const MLAPendingDemands = () => {
       }
       
       // Update the demand in the database
-      // Using type assertion to work around TypeScript limitations
       const { error } = await supabase
         .from('demands')
         .update(updateData)
-        .eq('id', demand.id) as any;
+        .eq('id', demand.id);
       
       if (error) throw error;
+      
+      toast.success(`Demand ${action}ed successfully`);
       
       // Navigate to detail view
       navigate(`/mla/demand/${demand.id}`);
@@ -290,26 +294,34 @@ const MLAPendingDemands = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {demands.map((demand) => (
-                    <TableRow key={demand.id}>
-                      <TableCell className="font-medium">{demand.title}</TableCell>
-                      <TableCell>{demand.categoryName}</TableCell>
-                      <TableCell>{demand.proposerName}</TableCell>
-                      <TableCell>{new Date(demand.submissionDate).toLocaleDateString()}</TableCell>
-                      <TableCell>{demand.voteCount}</TableCell>
-                      <TableCell>{getStatusBadge(demand.status)}</TableCell>
-                      <TableCell>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => navigate(`/mla/demand/${demand.id}`)}
-                        >
-                          <FileText className="mr-2 h-4 w-4" />
-                          Review
-                        </Button>
+                  {demands.length > 0 ? (
+                    demands.map((demand) => (
+                      <TableRow key={demand.id}>
+                        <TableCell className="font-medium">{demand.title}</TableCell>
+                        <TableCell>{demand.categoryName}</TableCell>
+                        <TableCell>{demand.proposerName}</TableCell>
+                        <TableCell>{new Date(demand.submissionDate).toLocaleDateString()}</TableCell>
+                        <TableCell>{demand.voteCount}</TableCell>
+                        <TableCell>{getStatusBadge(demand.status)}</TableCell>
+                        <TableCell>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => navigate(`/mla/demand/${demand.id}`)}
+                          >
+                            <FileText className="mr-2 h-4 w-4" />
+                            Review
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
+                        No pending demands found
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             )}
