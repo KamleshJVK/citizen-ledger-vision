@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Lock, Mail } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
   const { login } = useAuth();
@@ -24,17 +26,39 @@ const Login = () => {
     setIsSubmitting(true);
     
     try {
-      const success = await login(email, password);
+      // Sign in with Supabase
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       
-      if (success) {
-        // Get stored user from localStorage to check role for redirection
-        const userString = localStorage.getItem('user');
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      
+      if (data.user) {
+        // After successful authentication, fetch user details from the users table
+        const { data: userData, error: fetchError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
         
-        if (userString) {
-          const user = JSON.parse(userString);
-          
+        if (fetchError || !userData) {
+          toast.error("Could not fetch user details");
+          return;
+        }
+        
+        // Store user data in local storage
+        localStorage.setItem('user', JSON.stringify(userData));
+        
+        // Call the existing login function to update context
+        const success = await login(email, password);
+        
+        if (success) {
           // Redirect based on role
-          switch (user.role) {
+          switch (userData.role) {
             case "Common Citizen":
               navigate("/citizen");
               break;
@@ -50,8 +74,13 @@ const Login = () => {
             default:
               navigate(from);
           }
+          
+          toast.success(`Welcome back, ${userData.name}!`);
         }
       }
+    } catch (error) {
+      console.error("Login error:", error);
+      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -154,7 +183,7 @@ const Login = () => {
                 <p>mla@example.com (MLA)</p>
                 <p>officer@example.com (Officer)</p>
                 <p>admin@example.com (Admin)</p>
-                {/* <p className="mt-1">Use any password to login</p> */}
+                <p className="mt-1">Use "password" for all demo accounts</p>
               </div>
             </CardFooter>
           </form>
