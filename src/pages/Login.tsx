@@ -154,7 +154,7 @@ const Login = () => {
                 <p>mla@example.com (MLA)</p>
                 <p>officer@example.com (Officer)</p>
                 <p>admin@example.com (Admin)</p>
-                <p className="mt-1">Use any password to login</p>
+                {/* <p className="mt-1">Use any password to login</p> */}
               </div>
             </CardFooter>
           </form>
