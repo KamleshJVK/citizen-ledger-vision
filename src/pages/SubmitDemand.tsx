@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, FileUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createTransaction } from "@/lib/blockchain";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, DemandStatus } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 
 // Mock categories
@@ -76,19 +76,17 @@ const SubmitDemand = () => {
         "Pending"
       );
       
-      // Prepare the demand data
+      // Prepare the demand data with proper typing
       const newDemand = {
         id: demandId,
         title,
         description,
         category_id: categoryId,
-        category_name: categories.find(c => c.id === categoryId)?.name || "",
         proposer_id: user.id,
-        proposer_name: user.name,
         submission_date: new Date().toISOString(),
-        status: "Pending",
+        status: 'Pending' as DemandStatus,
         vote_count: 0,
-        hash: transaction.dataHash,
+        hash: transaction.dataHash
       };
       
       // Insert the demand into Supabase

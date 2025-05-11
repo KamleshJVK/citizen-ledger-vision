@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Demand, DemandStatus } from "@/types";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, DemandStatus as SupabaseDemandStatus } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -19,9 +19,9 @@ export const useDemandsData = () => {
     title: item.title,
     description: item.description,
     categoryId: item.category_id,
-    categoryName: item.category_name,
+    categoryName: item.category_name || '',
     proposerId: item.proposer_id,
-    proposerName: item.proposer_name,
+    proposerName: item.proposer_name || '',
     submissionDate: item.submission_date,
     status: item.status as DemandStatus,
     voteCount: item.vote_count,
@@ -60,7 +60,7 @@ export const useDemandsData = () => {
       
       // Increment vote count in the demand
       const { error: updateError } = await supabase.rpc('increment_vote_count', {
-        demand_id: demandId as string
+        demand_id: demandId
       });
       
       if (updateError) {
@@ -110,14 +110,33 @@ export const useDemandsData = () => {
       try {
         const { data, error } = await supabase
           .from('demands')
-          .select('*')
+          .select('*, users!demands_proposer_id_fkey(name), categories!demands_category_id_fkey(name)')
           .eq('proposer_id', user.id)
           .order('submission_date', { ascending: false });
           
         if (error) throw error;
         
         if (data) {
-          setMyDemands(data.map(mapApiToDemand));
+          const processedDemands = data.map(item => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            categoryId: item.category_id,
+            categoryName: item.categories?.name || '',
+            proposerId: item.proposer_id,
+            proposerName: item.users?.name || '',
+            submissionDate: item.submission_date,
+            status: item.status as DemandStatus,
+            voteCount: item.vote_count,
+            hash: item.hash,
+            mlaId: item.mla_id,
+            mlaName: null,
+            officerId: item.officer_id,
+            officerName: null,
+            approvalDate: item.approval_date,
+            rejectionDate: item.rejection_date,
+          }));
+          setMyDemands(processedDemands);
         }
       } catch (error) {
         console.error("Error fetching user demands:", error);
@@ -130,14 +149,33 @@ export const useDemandsData = () => {
       try {
         const { data, error } = await supabase
           .from('demands')
-          .select('*')
+          .select('*, users!demands_proposer_id_fkey(name), categories!demands_category_id_fkey(name)')
           .eq('status', 'Voting Open')
           .order('vote_count', { ascending: false });
           
         if (error) throw error;
         
         if (data) {
-          setVotingOpportunities(data.map(mapApiToDemand));
+          const processedDemands = data.map(item => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            categoryId: item.category_id,
+            categoryName: item.categories?.name || '',
+            proposerId: item.proposer_id,
+            proposerName: item.users?.name || '',
+            submissionDate: item.submission_date,
+            status: item.status as DemandStatus,
+            voteCount: item.vote_count,
+            hash: item.hash,
+            mlaId: item.mla_id,
+            mlaName: null,
+            officerId: item.officer_id,
+            officerName: null,
+            approvalDate: item.approval_date,
+            rejectionDate: item.rejection_date,
+          }));
+          setVotingOpportunities(processedDemands);
         }
       } catch (error) {
         console.error("Error fetching voting opportunities:", error);

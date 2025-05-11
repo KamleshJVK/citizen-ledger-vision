@@ -23,3 +23,8 @@ export type TablesInsert = {
 export type TablesUpdate = {
   [TableName in keyof Database['public']['Tables']]: Database['public']['Tables'][TableName]['Update']
 };
+
+// Export enums for easier access
+export type DemandStatus = Database['public']['Enums']['demand_status'];
+export type TransactionAction = Database['public']['Enums']['transaction_action'];
+export type UserRole = Database['public']['Enums']['user_role'];
