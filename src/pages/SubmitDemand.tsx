@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -11,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, FileUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createTransaction } from "@/lib/blockchain";
-import { supabase, DemandStatus } from "@/integrations/supabase/client";
+import { supabase, DemandStatus, TablesInsert } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 
 // Mock categories
@@ -77,14 +78,14 @@ const SubmitDemand = () => {
       );
       
       // Prepare the demand data with proper typing
-      const newDemand = {
+      const newDemand: TablesInsert['demands'] = {
         id: demandId,
         title,
         description,
         category_id: categoryId,
         proposer_id: user.id,
         submission_date: new Date().toISOString(),
-        status: 'Pending' as DemandStatus,
+        status: 'Pending',
         vote_count: 0,
         hash: transaction.dataHash
       };
@@ -111,7 +112,7 @@ const SubmitDemand = () => {
           previous_status: null,
           new_status: "Pending",
           data_hash: transaction.dataHash
-        });
+        } as TablesInsert['transactions']);
       
       if (transactionError) {
         console.error("Error inserting transaction:", transactionError);

@@ -14,15 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Demand, DemandStatus } from "@/types";
 import { ClipboardList, FileText, Loader } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, TablesUpdate } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 // Mock data for MLA pending demands
@@ -94,7 +86,7 @@ const MLAPendingDemands = () => {
         // Fetch real data from Supabase
         const { data, error } = await supabase
           .from('demands')
-          .select('*')
+          .select('*, users!demands_proposer_id_fkey(name), categories!demands_category_id_fkey(name)')
           .eq('status', 'Pending');
         
         if (error) throw error;
@@ -105,9 +97,9 @@ const MLAPendingDemands = () => {
             title: item.title,
             description: item.description,
             categoryId: item.category_id,
-            categoryName: item.category_name,
+            categoryName: item.categories?.name || '',
             proposerId: item.proposer_id,
-            proposerName: item.proposer_name,
+            proposerName: item.users?.name || '',
             submissionDate: item.submission_date,
             status: item.status as DemandStatus,
             voteCount: item.vote_count,
@@ -150,9 +142,9 @@ const MLAPendingDemands = () => {
             title: (payload.new as any).title,
             description: (payload.new as any).description,
             categoryId: (payload.new as any).category_id,
-            categoryName: (payload.new as any).category_name,
+            categoryName: (payload.new as any).category_name || '',
             proposerId: (payload.new as any).proposer_id,
-            proposerName: (payload.new as any).proposer_name,
+            proposerName: (payload.new as any).proposer_name || '',
             submissionDate: (payload.new as any).submission_date,
             status: (payload.new as any).status as DemandStatus,
             voteCount: (payload.new as any).vote_count,
@@ -198,7 +190,7 @@ const MLAPendingDemands = () => {
     setLoading(true);
     try {
       let newStatus: DemandStatus = 'Pending'; // Initialize with a valid DemandStatus
-      let updateData: any = {
+      let updateData: TablesUpdate['demands'] = {
         mla_id: user.id,
         mla_name: user.name,
       };

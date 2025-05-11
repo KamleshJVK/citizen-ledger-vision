@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Demand, DemandStatus } from "@/types";
-import { supabase, DemandStatus as SupabaseDemandStatus } from "@/integrations/supabase/client";
+import { supabase, TablesInsert } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -19,9 +19,9 @@ export const useDemandsData = () => {
     title: item.title,
     description: item.description,
     categoryId: item.category_id,
-    categoryName: item.category_name || '',
+    categoryName: item.categories?.name || '',
     proposerId: item.proposer_id,
-    proposerName: item.proposer_name || '',
+    proposerName: item.users?.name || '',
     submissionDate: item.submission_date,
     status: item.status as DemandStatus,
     voteCount: item.vote_count,
@@ -54,7 +54,7 @@ export const useDemandsData = () => {
           id: `v_${uuidv4()}`,
           demand_id: demandId,
           user_id: user.id
-        });
+        } as TablesInsert['votes']);
         
       if (error) throw error;
       
