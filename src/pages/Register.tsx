@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, User, Mail, Lock, CreditCard } from "lucide-react";
+import { Loader2, User, Mail, Lock, CreditCard, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Register = () => {
   const { register } = useAuth();
@@ -22,6 +23,7 @@ const Register = () => {
   const [role, setRole] = useState<UserRole>("Common Citizen");
   const [aadharNumber, setAadharNumber] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState("");
 
   const validatePassword = (pass: string) => {
@@ -48,6 +50,7 @@ const Register = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     
     // Validate password
     const passwordValidationError = validatePassword(password);
@@ -59,6 +62,11 @@ const Register = () => {
     // Check if passwords match
     if (password !== confirmPassword) {
       setPasswordError("Passwords do not match");
+      return;
+    }
+    
+    if (!name || !email) {
+      setError("Please fill in all required fields");
       return;
     }
     
@@ -85,10 +93,12 @@ const Register = () => {
           default:
             navigate("/");
         }
+      } else {
+        // The error toast is already handled in the register function
       }
     } catch (error) {
       console.error("Registration error:", error);
-      toast.error("An unexpected error occurred. Please try again.");
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -116,6 +126,13 @@ const Register = () => {
           
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
                 <div className="relative">
@@ -261,6 +278,11 @@ const Register = () => {
                   For demo purposes, all account types can be created immediately.
                 </p>
               )}
+
+              <p className="text-xs text-blue-600 border border-blue-200 bg-blue-50 p-2 rounded">
+                For testing: You can also use the demo accounts listed on the login page with 
+                password "54321"
+              </p>
             </CardFooter>
           </form>
         </Card>

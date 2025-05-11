@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -12,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, FileUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createTransaction } from "@/lib/blockchain";
-import { supabase, DemandInsert } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 
 // Mock categories
@@ -78,7 +77,7 @@ const SubmitDemand = () => {
       );
       
       // Prepare the demand data
-      const newDemand: DemandInsert = {
+      const newDemand = {
         id: demandId,
         title,
         description,

@@ -53,15 +53,14 @@ export const useDemandsData = () => {
         .insert({
           id: `v_${uuidv4()}`,
           demand_id: demandId,
-          user_id: user.id,
-          vote_date: new Date().toISOString()
+          user_id: user.id
         });
         
       if (error) throw error;
       
       // Increment vote count in the demand
       const { error: updateError } = await supabase.rpc('increment_vote_count', {
-        demand_id: demandId
+        demand_id: demandId as string
       });
       
       if (updateError) {
