@@ -9,11 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, FileUp, Loader2 } from "lucide-react";
+import { ArrowLeft, FileUp, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { createTransaction } from "@/lib/blockchain";
 import { supabase, DemandStatus, TablesInsert } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
+import { useFileStorage } from "@/hooks/useFileStorage";
+import { Badge } from "@/components/ui/badge";
 
 // Mock categories
 const categories = [
@@ -30,12 +32,14 @@ const categories = [
 const SubmitDemand = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { uploadMultipleFiles, uploading: uploadingFiles } = useFileStorage();
   
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [documents, setDocuments] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<{path: string, url: string | null}[]>([]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -82,6 +86,21 @@ const SubmitDemand = () => {
         null,
         "Pending"
       );
+
+      // Handle file uploads if there are any
+      let uploadResults: {path: string, url: string | null}[] = [];
+      
+      if (documents.length > 0) {
+        // Create bucket if it doesn't exist (this will be handled by our SQL configuration)
+        uploadResults = await uploadMultipleFiles(documents, {
+          bucketName: 'demand-documents',
+          folderPath: demandId,
+          maxSizeMB: 5,
+          allowedFileTypes: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx']
+        });
+        
+        setUploadedFiles(uploadResults);
+      }
       
       // Prepare the demand data with proper typing
       const newDemand: TablesInsert['demands'] = {
@@ -104,6 +123,29 @@ const SubmitDemand = () => {
       if (demandError) {
         throw new Error(`Error inserting demand: ${demandError.message}`);
       }
+
+      // Store document references if any
+      if (uploadResults.length > 0) {
+        const documentRecords = uploadResults.map(file => ({
+          id: `doc_${uuidv4()}`,
+          demand_id: demandId,
+          file_path: file.path,
+          file_url: file.url,
+          uploaded_by: user.id,
+          upload_date: new Date().toISOString()
+        }));
+
+        // This would require a "documents" table to be created in the database
+        // We'll set this up in the next SQL migration
+        const { error: docsError } = await supabase
+          .from('demand_documents')
+          .insert(documentRecords);
+
+        if (docsError) {
+          console.error("Error saving document references:", docsError);
+          // Continue anyway since the demand was created successfully
+        }
+      }
       
       // Insert the transaction record
       const { error: transactionError } = await supabase
@@ -125,30 +167,17 @@ const SubmitDemand = () => {
         // Continue anyway since the demand was created successfully
       }
       
-      // Handle file uploads if there are any
-      if (documents.length > 0) {
-        // For each file, upload to Supabase storage
-        for (const file of documents) {
-          const { error: uploadError } = await supabase.storage
-            .from('demand-documents')
-            .upload(`${demandId}/${file.name}`, file);
-            
-          if (uploadError) {
-            console.error(`Error uploading file ${file.name}:`, uploadError);
-            // Continue with other files
-          }
-        }
-      }
-      
       toast.success("Demand submitted successfully");
       navigate("/citizen");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting demand:", error);
-      toast.error("Failed to submit demand. Please try again.");
+      toast.error(`Failed to submit demand: ${error.message || "Please try again"}`);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const isButtonDisabled = isSubmitting || uploadingFiles;
 
   return (
     <DashboardLayout>
@@ -232,7 +261,7 @@ const SubmitDemand = () => {
                     type="button" 
                     variant="outline"
                     className="relative"
-                    disabled={isSubmitting}
+                    disabled={isButtonDisabled}
                   >
                     <FileUp className="mr-2 h-4 w-4" />
                     Upload Files
@@ -242,7 +271,8 @@ const SubmitDemand = () => {
                       className="absolute inset-0 cursor-pointer opacity-0"
                       multiple
                       onChange={handleFileChange}
-                      disabled={isSubmitting}
+                      disabled={isButtonDisabled}
+                      accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
                     />
                   </Button>
                   <span className="text-sm text-gray-500">
@@ -253,27 +283,31 @@ const SubmitDemand = () => {
                 {documents.length > 0 && (
                   <div className="mt-3 space-y-2 rounded-md border p-3">
                     <p className="text-sm font-medium">Selected Files:</p>
-                    <ul className="space-y-1">
+                    <div className="flex flex-wrap gap-2">
                       {documents.map((file, index) => (
-                        <li key={index} className="flex items-center justify-between text-sm">
-                          <span className="truncate">{file.name}</span>
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
+                        <Badge 
+                          key={index} 
+                          variant="secondary"
+                          className="flex items-center gap-1 pr-1"
+                        >
+                          <span className="truncate max-w-[200px]">{file.name}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
                             size="sm"
-                            className="h-6 px-2 text-xs"
+                            className="h-5 w-5 p-0 rounded-full"
                             onClick={() => removeFile(index)}
                           >
-                            Remove
+                            <X className="h-3 w-3" />
                           </Button>
-                        </li>
+                        </Badge>
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 )}
                 
                 <p className="text-xs text-muted-foreground">
-                  Supports JPG, PNG, PDF files up to 5MB each. Documents strengthen your proposal.
+                  Supports JPG, PNG, PDF, DOC files up to 5MB each. Documents strengthen your proposal.
                 </p>
               </div>
             </CardContent>
@@ -291,19 +325,19 @@ const SubmitDemand = () => {
                   type="button"
                   variant="outline"
                   onClick={() => navigate("/citizen")}
-                  disabled={isSubmitting}
+                  disabled={isButtonDisabled}
                 >
                   Cancel
                 </Button>
                 <Button 
                   type="submit" 
                   className="bg-citizen hover:bg-citizen-hover"
-                  disabled={isSubmitting}
+                  disabled={isButtonDisabled}
                 >
-                  {isSubmitting ? (
+                  {isButtonDisabled ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Submitting...
+                      {uploadingFiles ? "Uploading Files..." : "Submitting..."}
                     </>
                   ) : (
                     "Submit Demand"

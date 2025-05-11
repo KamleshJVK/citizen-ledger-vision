@@ -250,10 +250,12 @@ export const useDemandsData = () => {
         console.log("Real-time update for user votes:", payload);
         
         if (payload.eventType === 'INSERT' && payload.new) {
-          setVotedDemands(prev => [...prev, (payload.new as any).demand_id]);
+          const newVote = payload.new as any;
+          setVotedDemands(prev => [...prev, newVote.demand_id]);
         } else if (payload.eventType === 'DELETE' && payload.old) {
+          const oldVote = payload.old as any;
           setVotedDemands(prev => 
-            prev.filter(id => id !== (payload.old as any).demand_id)
+            prev.filter(id => id !== oldVote.demand_id)
           );
         }
       })

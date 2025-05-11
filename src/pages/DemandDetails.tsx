@@ -12,6 +12,7 @@ import { ArrowLeft, CheckCircle, Clock, FileDown, Loader, X } from "lucide-react
 import { toast } from "sonner";
 import TransactionViewer from "@/components/TransactionViewer";
 import { useBlockchain } from "@/hooks/useBlockchain";
+import DocumentsList from "@/components/DocumentsList";
 
 // Mock demand details for the demo
 const mockDemand: Demand = {
@@ -360,6 +361,13 @@ const DemandDetails = () => {
           </TabsContent>
         </Tabs>
       </div>
+      
+      {demand && (
+        <div className="mt-6">
+          <h3 className="text-lg font-medium mb-2">Supporting Documents</h3>
+          <DocumentsList demandId={demand.id} />
+        </div>
+      )}
     </DashboardLayout>
   );
 };
