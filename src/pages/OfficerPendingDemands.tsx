@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -22,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, DemandStatus as SupabaseDemandStatus, TablesUpdate } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 // Mock data for Officer pending demands
@@ -205,10 +206,9 @@ const OfficerPendingDemands = () => {
     
     setLoading(true);
     try {
-      let newStatus: DemandStatus = 'Forwarded'; // Initialize with a valid DemandStatus
-      let updateData: any = {
+      let newStatus: SupabaseDemandStatus = 'Forwarded'; // Initialize with a valid DemandStatus
+      let updateData: TablesUpdate['demands'] = {
         officer_id: user.id,
-        officer_name: user.name,
       };
       
       if (action === 'approve') {

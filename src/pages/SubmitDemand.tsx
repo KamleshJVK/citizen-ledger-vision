@@ -67,6 +67,12 @@ const SubmitDemand = () => {
     try {
       const demandId = `d_${uuidv4()}`;
       
+      // Find category name
+      const category = categories.find(c => c.id === categoryId);
+      if (!category) {
+        throw new Error("Invalid category selected");
+      }
+      
       // Create a transaction hash
       const transaction = createTransaction(
         demandId,
@@ -85,7 +91,7 @@ const SubmitDemand = () => {
         category_id: categoryId,
         proposer_id: user.id,
         submission_date: new Date().toISOString(),
-        status: 'Pending',
+        status: 'Pending' as DemandStatus, // Cast as DemandStatus to fix type error
         vote_count: 0,
         hash: transaction.dataHash
       };

@@ -1,8 +1,8 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { Demand, DemandStatus } from "@/types";
-import { supabase, TablesInsert } from "@/integrations/supabase/client";
+import { Demand } from "@/types";
+import { supabase, TablesInsert, DemandStatus } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -117,25 +117,7 @@ export const useDemandsData = () => {
         if (error) throw error;
         
         if (data) {
-          const processedDemands = data.map(item => ({
-            id: item.id,
-            title: item.title,
-            description: item.description,
-            categoryId: item.category_id,
-            categoryName: item.categories?.name || '',
-            proposerId: item.proposer_id,
-            proposerName: item.users?.name || '',
-            submissionDate: item.submission_date,
-            status: item.status as DemandStatus,
-            voteCount: item.vote_count,
-            hash: item.hash,
-            mlaId: item.mla_id,
-            mlaName: null,
-            officerId: item.officer_id,
-            officerName: null,
-            approvalDate: item.approval_date,
-            rejectionDate: item.rejection_date,
-          }));
+          const processedDemands = data.map(item => mapApiToDemand(item));
           setMyDemands(processedDemands);
         }
       } catch (error) {
@@ -156,25 +138,7 @@ export const useDemandsData = () => {
         if (error) throw error;
         
         if (data) {
-          const processedDemands = data.map(item => ({
-            id: item.id,
-            title: item.title,
-            description: item.description,
-            categoryId: item.category_id,
-            categoryName: item.categories?.name || '',
-            proposerId: item.proposer_id,
-            proposerName: item.users?.name || '',
-            submissionDate: item.submission_date,
-            status: item.status as DemandStatus,
-            voteCount: item.vote_count,
-            hash: item.hash,
-            mlaId: item.mla_id,
-            mlaName: null,
-            officerId: item.officer_id,
-            officerName: null,
-            approvalDate: item.approval_date,
-            rejectionDate: item.rejection_date,
-          }));
+          const processedDemands = data.map(item => mapApiToDemand(item));
           setVotingOpportunities(processedDemands);
         }
       } catch (error) {

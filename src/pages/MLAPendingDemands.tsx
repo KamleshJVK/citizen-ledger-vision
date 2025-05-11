@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -14,8 +15,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Demand, DemandStatus } from "@/types";
 import { ClipboardList, FileText, Loader } from "lucide-react";
-import { supabase, TablesUpdate } from "@/integrations/supabase/client";
+import { supabase, TablesUpdate, DemandStatus as SupabaseDemandStatus } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 // Mock data for MLA pending demands
 const pendingDemands: Demand[] = [
@@ -189,10 +198,9 @@ const MLAPendingDemands = () => {
     
     setLoading(true);
     try {
-      let newStatus: DemandStatus = 'Pending'; // Initialize with a valid DemandStatus
+      let newStatus: SupabaseDemandStatus = 'Pending'; // Initialize with a valid DemandStatus
       let updateData: TablesUpdate['demands'] = {
         mla_id: user.id,
-        mla_name: user.name,
       };
       
       if (action === 'approve') {
