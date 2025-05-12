@@ -4,18 +4,15 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { Demand, DemandStatus, Transaction } from "@/types";
-import { ArrowLeft, CheckCircle, Clock, Loader, X } from "lucide-react";
+import { ArrowLeft, Loader } from "lucide-react";
 import { toast } from "sonner";
-import TransactionViewer from "@/components/TransactionViewer";
 import { useBlockchain } from "@/hooks/useBlockchain";
-import DocumentsList from "@/components/DocumentsList";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
+import DemandDetailsCard from "@/components/demands/DemandDetailsCard";
+import BlockchainTab from "@/components/demands/BlockchainTab";
 
 const DemandDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -105,8 +102,8 @@ const DemandDetails = () => {
     fetchDemand();
   }, [id]);
 
+  // Fetch blockchain transactions
   useEffect(() => {
-    // Fetch blockchain transactions
     const fetchTransactions = async () => {
       try {
         if (id) {
@@ -154,23 +151,6 @@ const DemandDetails = () => {
     
     fetchTransactions();
   }, [id, getTransactions]);
-
-  const getStatusBadge = (status: DemandStatus) => {
-    switch (status) {
-      case 'Pending':
-        return <Badge variant="outline" className="bg-slate-100">Pending</Badge>;
-      case 'Voting Open':
-        return <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">Voting Open</Badge>;
-      case 'Reviewed':
-        return <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300">Reviewed</Badge>;
-      case 'Forwarded':
-        return <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">Forwarded</Badge>;
-      case 'Approved':
-        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">Approved</Badge>;
-      case 'Rejected':
-        return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">Rejected</Badge>;
-    }
-  };
 
   const handleAction = async (action: 'approve' | 'reject' | 'forward') => {
     if (!user || !id || !demand) return;
@@ -286,68 +266,6 @@ const DemandDetails = () => {
     }
   };
 
-  const getActionButtons = () => {
-    // Only show action buttons if the user is an MLA or Officer and the demand is in the right state
-    if (user?.role === 'MLA' && demand?.status === 'Pending') {
-      return (
-        <div className="mt-6 flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
-          <Button 
-            variant="outline" 
-            className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
-            onClick={() => handleAction('reject')}
-            disabled={isProcessing}
-          >
-            {isProcessing ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
-            Reject
-          </Button>
-          <Button 
-            variant="outline"
-            className="border-amber-300 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
-            onClick={() => handleAction('forward')}
-            disabled={isProcessing}
-          >
-            {isProcessing ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
-            Forward to Officer
-          </Button>
-          <Button 
-            className="bg-green-600 hover:bg-green-700"
-            onClick={() => handleAction('approve')}
-            disabled={isProcessing}
-          >
-            {isProcessing ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-            Approve
-          </Button>
-        </div>
-      );
-    }
-    
-    if (user?.role === 'Higher Public Officer' && demand?.status === 'Forwarded') {
-      return (
-        <div className="mt-6 flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
-          <Button 
-            variant="outline" 
-            className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
-            onClick={() => handleAction('reject')}
-            disabled={isProcessing}
-          >
-            {isProcessing ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
-            Reject
-          </Button>
-          <Button 
-            className="bg-green-600 hover:bg-green-700"
-            onClick={() => handleAction('approve')}
-            disabled={isProcessing}
-          >
-            {isProcessing ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-            Approve
-          </Button>
-        </div>
-      );
-    }
-    
-    return null;
-  };
-
   const getBackLink = () => {
     switch (user?.role) {
       case 'Common Citizen':
@@ -396,94 +314,22 @@ const DemandDetails = () => {
             
             {/* Details Tab */}
             <TabsContent value="details" className="space-y-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between">
-                    <CardTitle className="text-2xl">{demand.title}</CardTitle>
-                    {getStatusBadge(demand.status)}
-                  </div>
-                  <CardDescription>Category: {demand.categoryName}</CardDescription>
-                </CardHeader>
-                
-                <CardContent className="space-y-4">
-                  <div>
-                    <h3 className="mb-1 font-medium">Description</h3>
-                    <div className="whitespace-pre-line rounded-md bg-slate-50 p-4 text-sm">
-                      {demand.description}
-                    </div>
-                  </div>
-                  
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <h3 className="mb-1 text-sm font-medium">Submitted By</h3>
-                      <p>{demand.proposerName}</p>
-                    </div>
-                    <div>
-                      <h3 className="mb-1 text-sm font-medium">Submission Date</h3>
-                      <p>{new Date(demand.submissionDate).toLocaleDateString()}</p>
-                    </div>
-                    <div>
-                      <h3 className="mb-1 text-sm font-medium">Votes</h3>
-                      <p>{demand.voteCount}</p>
-                    </div>
-                    <div>
-                      <h3 className="mb-1 text-sm font-medium">Status</h3>
-                      <p>{demand.status}</p>
-                    </div>
-                  </div>
-                  
-                  {demand.mlaId && demand.mlaName && (
-                    <div>
-                      <h3 className="mb-1 text-sm font-medium">MLA Review</h3>
-                      <p>Reviewed by {demand.mlaName}</p>
-                    </div>
-                  )}
-                  
-                  {demand.officerId && demand.officerName && (
-                    <div>
-                      <h3 className="mb-1 text-sm font-medium">Officer Approval</h3>
-                      <p>Processed by {demand.officerName}</p>
-                      {demand.approvalDate && (
-                        <p>Approved on {new Date(demand.approvalDate).toLocaleDateString()}</p>
-                      )}
-                      {demand.rejectionDate && (
-                        <p>Rejected on {new Date(demand.rejectionDate).toLocaleDateString()}</p>
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* Supporting Documents Section */}
-                  <div>
-                    <h3 className="mb-1 font-medium">Supporting Documents</h3>
-                    <DocumentsList demandId={demand.id} />
-                  </div>
-                  
-                  {/* Notes field for MLA/Officer */}
-                  {(user?.role === 'MLA' || user?.role === 'Higher Public Officer') && 
-                  (demand?.status === 'Pending' || demand?.status === 'Forwarded') && (
-                    <div className="space-y-2">
-                      <h3 className="font-medium">Add Notes</h3>
-                      <Textarea
-                        placeholder="Add your comments or justification for your decision..."
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        className="h-24"
-                      />
-                    </div>
-                  )}
-                  
-                  {/* Action buttons */}
-                  {getActionButtons()}
-                </CardContent>
-              </Card>
+              <DemandDetailsCard
+                demand={demand}
+                userRole={user?.role}
+                notes={notes}
+                setNotes={setNotes}
+                isProcessing={isProcessing}
+                onAction={handleAction}
+              />
             </TabsContent>
             
             {/* Blockchain Tab */}
             <TabsContent value="blockchain" className="space-y-4">
-              <TransactionViewer 
-                transactions={transactions} 
+              <BlockchainTab
+                transactions={transactions}
                 demandId={id || ''}
-                demandHash={demand.hash} 
+                demandHash={demand.hash}
               />
             </TabsContent>
           </Tabs>
