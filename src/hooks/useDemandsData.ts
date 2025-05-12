@@ -58,31 +58,25 @@ export const useDemandsData = () => {
         
       if (error) throw error;
       
-      // Increment vote count in the demand
-      const { error: updateError } = await supabase.rpc('increment_vote_count', {
-        demand_id: demandId
-      });
-      
-      if (updateError) {
-        // Handle RPC function missing by doing direct update
-        const { data: demand, error: fetchError } = await supabase
-          .from('demands')
-          .select('vote_count')
-          .eq('id', demandId)
-          .single();
+      // Increment vote count directly in the database
+      // Since we have a function to do this now, we'll update directly
+      const { data: demand, error: fetchError } = await supabase
+        .from('demands')
+        .select('vote_count')
+        .eq('id', demandId)
+        .single();
           
-        if (fetchError) throw fetchError;
+      if (fetchError) throw fetchError;
         
-        const newVoteCount = (demand?.vote_count || 0) + 1;
+      const newVoteCount = (demand?.vote_count || 0) + 1;
         
-        // Update the demand with the new vote count
-        const { error: directUpdateError } = await supabase
-          .from('demands')
-          .update({ vote_count: newVoteCount })
-          .eq('id', demandId);
+      // Update the demand with the new vote count
+      const { error: directUpdateError } = await supabase
+        .from('demands')
+        .update({ vote_count: newVoteCount })
+        .eq('id', demandId);
           
-        if (directUpdateError) throw directUpdateError;
-      }
+      if (directUpdateError) throw directUpdateError;
       
       toast.success("Vote submitted successfully");
       

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -45,6 +46,34 @@ const DemandDetails = () => {
         if (error) throw error;
         
         if (data) {
+          // Get MLA and Officer names if they're assigned
+          let mlaName = '';
+          let officerName = '';
+          
+          if (data.mla_id) {
+            const { data: mlaData, error: mlaError } = await supabase
+              .from('users')
+              .select('name')
+              .eq('id', data.mla_id)
+              .single();
+              
+            if (!mlaError && mlaData) {
+              mlaName = mlaData.name;
+            }
+          }
+          
+          if (data.officer_id) {
+            const { data: officerData, error: officerError } = await supabase
+              .from('users')
+              .select('name')
+              .eq('id', data.officer_id)
+              .single();
+              
+            if (!officerError && officerData) {
+              officerName = officerData.name;
+            }
+          }
+          
           setDemand({
             id: data.id,
             title: data.title,
@@ -58,9 +87,9 @@ const DemandDetails = () => {
             voteCount: data.vote_count,
             hash: data.hash,
             mlaId: data.mla_id,
-            mlaName: data.mla_name,
+            mlaName: mlaName,
             officerId: data.officer_id,
-            officerName: data.officer_name,
+            officerName: officerName,
             approvalDate: data.approval_date,
             rejectionDate: data.rejection_date,
           });
@@ -106,27 +135,20 @@ const DemandDetails = () => {
             setTransactions(txs);
           } else {
             // Fallback to blockchain
-            const blockchainTxs = await getTransactions(id);
-            if (blockchainTxs.length > 0) {
-              setTransactions(blockchainTxs);
+            try {
+              const blockchainTxs = await getTransactions(id);
+              if (blockchainTxs.length > 0) {
+                setTransactions(blockchainTxs);
+              }
+            } catch (bcError) {
+              console.error("Blockchain fallback failed:", bcError);
+              toast.error("Failed to load transaction history from blockchain");
             }
           }
         }
       } catch (error: any) {
         console.error("Error fetching transactions:", error);
         toast.error("Failed to load transaction history");
-        
-        // Try blockchain as fallback
-        try {
-          if (id) {
-            const blockchainTxs = await getTransactions(id);
-            if (blockchainTxs.length > 0) {
-              setTransactions(blockchainTxs);
-            }
-          }
-        } catch (bcError) {
-          console.error("Blockchain fallback also failed:", bcError);
-        }
       }
     };
     
@@ -410,14 +432,14 @@ const DemandDetails = () => {
                     </div>
                   </div>
                   
-                  {demand.mlaId && (
+                  {demand.mlaId && demand.mlaName && (
                     <div>
                       <h3 className="mb-1 text-sm font-medium">MLA Review</h3>
                       <p>Reviewed by {demand.mlaName}</p>
                     </div>
                   )}
                   
-                  {demand.officerId && (
+                  {demand.officerId && demand.officerName && (
                     <div>
                       <h3 className="mb-1 text-sm font-medium">Officer Approval</h3>
                       <p>Processed by {demand.officerName}</p>
@@ -480,173 +502,6 @@ const DemandDetails = () => {
       )}
     </DashboardLayout>
   );
-};
-
-const getActionButtons = () => {
-  const { user } = useAuth();
-  const { id } = useParams<{ id: string }>();
-  const { createTransaction } = useBlockchain();
-  const [demand, setDemand] = useState<Demand | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [notes, setNotes] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const navigate = useNavigate();
-
-  const handleAction = async (action: 'approve' | 'reject' | 'forward') => {
-    if (!user || !id || !demand) return;
-    
-    setIsProcessing(true);
-    
-    try {
-      // Determine new status and transaction action based on user role and action
-      let newStatus: DemandStatus;
-      let transactionAction: Transaction['action'];
-      
-      if (user.role === 'MLA') {
-        if (action === 'approve') {
-          newStatus = 'Reviewed';
-          transactionAction = 'Demand Reviewed';
-        } else if (action === 'reject') {
-          newStatus = 'Rejected';
-          transactionAction = 'Demand Rejected';
-        } else { // forward
-          newStatus = 'Forwarded';
-          transactionAction = 'Demand Reviewed';
-        }
-      } else { // Higher Public Officer
-        if (action === 'approve') {
-          newStatus = 'Approved';
-          transactionAction = 'Demand Approved';
-        } else {
-          newStatus = 'Rejected';
-          transactionAction = 'Demand Rejected';
-        }
-      }
-      
-      // Create a blockchain transaction
-      // const previousHash = transactions.length > 0 ? transactions[transactions.length - 1].dataHash : '0';
-      // const transaction = await createTransaction(
-      //   id,
-      //   transactionAction,
-      //   demand.status,
-      //   newStatus,
-      //   previousHash
-      // );
-      
-      // // Update transactions list
-      // setTransactions(prevTransactions => [...prevTransactions, transaction]);
-      
-      // // Update demand in state
-      // setDemand(prev => 
-      //   prev ? { ...prev, status: newStatus } : null
-      // );
-      
-      // Show success message
-      toast.success(`Demand ${action === 'forward' ? 'forwarded' : action + 'd'} successfully`);
-      
-      // Navigate back to dashboard after a short delay
-      setTimeout(() => {
-        if (user.role === 'MLA') {
-          navigate("/mla");
-        } else {
-          navigate("/officer");
-        }
-      }, 1500);
-    } catch (error: any) {
-      console.error(`Error ${action}ing demand:`, error);
-      toast.error(`Failed to ${action} demand. Please try again.`);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const { user: authUser } = useAuth();
-  const { demand: currentDemand } = useParams();
-
-  if (!authUser) {
-    return null;
-  }
-
-  if (!demand) {
-    return null;
-  }
-
-  // Only show action buttons if the user is an MLA or Officer and the demand is in the right state
-  if (authUser?.role === 'MLA' && demand?.status === 'Pending') {
-    return (
-      <div className="mt-6 flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
-        <Button 
-          variant="outline" 
-          className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
-          onClick={() => handleAction('reject')}
-          disabled={isProcessing}
-        >
-          {isProcessing ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
-          Reject
-        </Button>
-        <Button 
-          variant="outline"
-          className="border-amber-300 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
-          onClick={() => handleAction('forward')}
-          disabled={isProcessing}
-        >
-          {isProcessing ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
-          Forward to Officer
-        </Button>
-        <Button 
-          className="bg-green-600 hover:bg-green-700"
-          onClick={() => handleAction('approve')}
-          disabled={isProcessing}
-        >
-          {isProcessing ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-          Approve
-        </Button>
-      </div>
-    );
-  }
-  
-  if (authUser?.role === 'Higher Public Officer' && demand?.status === 'Forwarded') {
-    return (
-      <div className="mt-6 flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
-        <Button 
-          variant="outline" 
-          className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
-          onClick={() => handleAction('reject')}
-          disabled={isProcessing}
-        >
-          {isProcessing ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
-          Reject
-        </Button>
-        <Button 
-          className="bg-green-600 hover:bg-green-700"
-          onClick={() => handleAction('approve')}
-          disabled={isProcessing}
-        >
-          {isProcessing ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-          Approve
-        </Button>
-      </div>
-    );
-  }
-  
-  return null;
-};
-
-const getBackLink = () => {
-  const { user } = useAuth();
-
-  switch (user?.role) {
-    case 'Common Citizen':
-      return '/citizen';
-    case 'MLA':
-      return '/mla';
-    case 'Higher Public Officer':
-      return '/officer';
-    case 'Admin':
-      return '/admin';
-    default:
-      return '/';
-  }
 };
 
 export default DemandDetails;
