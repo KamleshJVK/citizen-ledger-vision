@@ -81,6 +81,11 @@ const DocumentsList = ({ demandId }: DocumentsListProps) => {
                   <span className="inline-block px-2 py-0.5 text-xs bg-muted rounded-md">
                     {doc.fileType}
                   </span>
+                  {doc.fileSize && (
+                    <span className="inline-block px-2 py-0.5 text-xs ml-1 text-muted-foreground">
+                      {(doc.fileSize / 1024).toFixed(1)} KB
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

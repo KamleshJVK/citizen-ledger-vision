@@ -24,6 +24,51 @@ export type Database = {
         }
         Relationships: []
       }
+      demand_documents: {
+        Row: {
+          demand_id: string
+          file_path: string
+          file_size: number | null
+          file_url: string | null
+          id: string
+          upload_date: string
+          uploaded_by: string
+        }
+        Insert: {
+          demand_id: string
+          file_path: string
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          upload_date?: string
+          uploaded_by: string
+        }
+        Update: {
+          demand_id?: string
+          file_path?: string
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          upload_date?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_documents_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       demands: {
         Row: {
           approval_date: string | null
@@ -221,19 +266,21 @@ export type Database = {
           email: string
           id: string
           name: string
+          password: string
           private_key: string | null
           public_key: string
           role: Database["public"]["Enums"]["user_role"]
         }
         Insert: {
           aadhar_number?: string | null
-          created_at?: string
+          created_at: string
           email: string
           id?: string
           name: string
+          password?: string
           private_key?: string | null
           public_key: string
-          role: Database["public"]["Enums"]["user_role"]
+          role?: Database["public"]["Enums"]["user_role"]
         }
         Update: {
           aadhar_number?: string | null
@@ -241,6 +288,7 @@ export type Database = {
           email?: string
           id?: string
           name?: string
+          password?: string
           private_key?: string | null
           public_key?: string
           role?: Database["public"]["Enums"]["user_role"]
@@ -288,7 +336,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_auth_user_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       demand_status:

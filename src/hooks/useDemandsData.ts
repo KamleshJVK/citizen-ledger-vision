@@ -54,7 +54,7 @@ export const useDemandsData = () => {
           id: `v_${uuidv4()}`,
           demand_id: demandId,
           user_id: user.id
-        } as TablesInsert['votes']);
+        } as any);
         
       if (error) throw error;
       
@@ -95,7 +95,7 @@ export const useDemandsData = () => {
             : demand
         )
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting vote:", error);
       toast.error("Failed to submit vote. Please try again.");
     }
@@ -120,7 +120,7 @@ export const useDemandsData = () => {
           const processedDemands = data.map(item => mapApiToDemand(item));
           setMyDemands(processedDemands);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching user demands:", error);
         toast.error("Failed to load your demands");
       }
@@ -141,7 +141,7 @@ export const useDemandsData = () => {
           const processedDemands = data.map(item => mapApiToDemand(item));
           setVotingOpportunities(processedDemands);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching voting opportunities:", error);
         toast.error("Failed to load voting opportunities");
       }
@@ -160,7 +160,7 @@ export const useDemandsData = () => {
         if (data) {
           setVotedDemands(data.map(vote => vote.demand_id));
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching user votes:", error);
       } finally {
         setLoading(false);

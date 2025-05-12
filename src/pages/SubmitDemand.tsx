@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -131,14 +132,14 @@ const SubmitDemand = () => {
           file_path: file.path,
           file_url: file.url,
           uploaded_by: user.id,
-          upload_date: new Date().toISOString()
+          upload_date: new Date().toISOString(),
+          file_size: documents.find(d => file.path.includes(d.name))?.size || 0
         }));
 
-        // This would require a "documents" table to be created in the database
-        // We'll set this up in the next SQL migration
+        // Insert document records into the demand_documents table
         const { error: docsError } = await supabase
           .from('demand_documents')
-          .insert(documentRecords);
+          .insert(documentRecords as any);
 
         if (docsError) {
           console.error("Error saving document references:", docsError);
