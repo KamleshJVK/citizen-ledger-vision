@@ -6,9 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Lock, Mail, AlertCircle } from "lucide-react";
-import { toast } from "sonner";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, Lock, Mail } from "lucide-react";
 
 const Login = () => {
   const { login } = useAuth();
@@ -18,20 +16,12 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const from = location.state?.from?.pathname || "/";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     setIsSubmitting(true);
-    
-    if (!email || !password) {
-      setError("Please enter both email and password");
-      setIsSubmitting(false);
-      return;
-    }
     
     try {
       const success = await login(email, password);
@@ -61,12 +51,7 @@ const Login = () => {
               navigate(from);
           }
         }
-      } else {
-        setError("Invalid email or password");
       }
-    } catch (error) {
-      console.error("Login error:", error);
-      setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -94,13 +79,6 @@ const Login = () => {
           
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <div className="relative">
@@ -176,7 +154,7 @@ const Login = () => {
                 <p>mla@example.com (MLA)</p>
                 <p>officer@example.com (Officer)</p>
                 <p>admin@example.com (Admin)</p>
-                <p className="mt-1">Password: 54321</p>
+                <p className="mt-1">Use any password to login</p>
               </div>
             </CardFooter>
           </form>

@@ -1,9 +1,20 @@
 
-import { DemandStatus as SupabaseDemandStatus, TransactionAction as SupabaseTransactionAction, UserRole as SupabaseUserRole } from "@/integrations/supabase/client";
+export type UserRole = 'Common Citizen' | 'MLA' | 'Higher Public Officer' | 'Admin';
 
-export type UserRole = SupabaseUserRole;
-export type DemandStatus = SupabaseDemandStatus;
-export type TransactionAction = SupabaseTransactionAction;
+export type DemandStatus = 
+  | 'Pending' 
+  | 'Voting Open' 
+  | 'Reviewed' 
+  | 'Forwarded' 
+  | 'Approved' 
+  | 'Rejected';
+
+export type TransactionAction = 
+  | 'Demand Submitted'
+  | 'Demand Reviewed'
+  | 'Demand Voted'
+  | 'Demand Approved'
+  | 'Demand Rejected';
 
 export interface User {
   id: string;
