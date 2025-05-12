@@ -1,7 +1,7 @@
 
 import { Download, FileIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Document, useDocuments } from "@/hooks/useDocuments";
 import { formatDistanceToNow } from "date-fns";
 
@@ -27,22 +27,6 @@ const DocumentsList = ({ demandId }: DocumentsListProps) => {
       </p>
     );
   }
-  
-  const getFileTypeIcon = (fileType: string) => {
-    switch (fileType.toLowerCase()) {
-      case 'pdf':
-        return 'file-text';
-      case 'doc':
-      case 'docx':
-        return 'file-text';
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-        return 'image';
-      default:
-        return 'file';
-    }
-  };
   
   const handleDownload = (document: Document) => {
     downloadDocument(document);

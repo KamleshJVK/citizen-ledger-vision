@@ -42,7 +42,8 @@ export const useDocuments = (demandId?: string) => {
           uploadedBy: doc.uploaded_by,
           uploadDate: doc.upload_date,
           fileName: doc.file_path.split('/').pop() || 'Unknown',
-          fileType: doc.file_path.split('.').pop()?.toUpperCase() || 'Unknown'
+          fileType: doc.file_path.split('.').pop()?.toUpperCase() || 'Unknown',
+          fileSize: doc.file_size
         }));
         
         setDocuments(docs);
