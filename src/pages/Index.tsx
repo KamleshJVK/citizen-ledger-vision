@@ -136,6 +136,11 @@ const Index = () => {
       </section>
 
       {/* Recent Policies Preview */}
+      <img 
+            src="/d3ai12.png" 
+            alt="Architecture Diagram" 
+            className="mx-auto"
+          />
       <section className="bg-slate-100 py-20">
         <div className="container mx-auto px-4">
           <h2 className="mb-6 text-center text-3xl font-bold">
