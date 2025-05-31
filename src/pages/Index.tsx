@@ -139,7 +139,7 @@ const Index = () => {
       <img 
             src="/d3ai12.png" 
             alt="Architecture Diagram" 
-            className="mx-auto"
+            className="mx-auto mb-8"
           />
       <section className="bg-slate-100 py-20">
         <div className="container mx-auto px-4">
