@@ -1,4 +1,3 @@
-
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,6 @@ const Index = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // If user is already logged in, redirect to appropriate dashboard
   const navigateToDashboard = () => {
     if (!user) return navigate("/login");
 
@@ -29,18 +27,26 @@ const Index = () => {
     }
   };
 
-  // Redirect to login or dashboard if already logged in
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Hero Section */}
       <section className="relative bg-gradient-to-b from-slate-900 to-slate-800 py-20 text-white">
         <div className="container mx-auto px-4 py-16 text-center">
+          {/* Shield Image */}
+          <img 
+            src="/image_shield.png" 
+            alt="Shield Logo" 
+            className="mx-auto mb-8 h-64 w-64"
+          />
+
           <h1 className="mb-6 text-5xl font-bold tracking-tight md:text-6xl">
-            Citizen Ledger Vision
+            Securing Holistic and Inclusive E-Leadership through Decentralized Technologies
           </h1>
+
           <p className="mx-auto mb-8 max-w-3xl text-xl text-slate-200">
             A blockchain-powered platform connecting citizens with elected representatives and public officials for transparent governance and community development.
           </p>
+
           <div className="flex flex-wrap justify-center gap-4">
             <Button
               className="bg-white px-8 py-6 text-lg font-semibold text-slate-900 hover:bg-slate-100"
@@ -49,18 +55,8 @@ const Index = () => {
               {user ? "Go to Dashboard" : "Get Started"}
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
-            
-            {/* {!user && (
-              <Button
-                variant="outline"
-                className="border-white px-8 py-6 text-lg font-semibold text-white hover:bg-white/10"
-                onClick={() => navigate("/login")}
-              >
-                Sign In
-              </Button>
-            )} */}
           </div>
-          
+
           {/* Blockchain animation */}
           <div className="mt-16 flex justify-center">
             <div className="flex items-center space-x-4">
@@ -148,7 +144,7 @@ const Index = () => {
           <p className="mb-12 text-center text-gray-600">
             Explore policies created from citizen demands
           </p>
-          
+
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {[
               {
@@ -184,7 +180,7 @@ const Index = () => {
               </Card>
             ))}
           </div>
-          
+
           <div className="mt-10 text-center">
             <Button 
               variant="outline" 
@@ -205,19 +201,13 @@ const Index = () => {
             <h3 className="text-2xl font-bold">Citizen Ledger Vision</h3>
             <p className="mt-2 text-slate-300">Blockchain-powered civic participation</p>
           </div>
-          
+
           <div className="mb-6 flex justify-center space-x-6">
-            <Link to="/" className="text-slate-300 hover:text-white hover:underline">
-              Home
-            </Link>
-            <Link to="/login" className="text-slate-300 hover:text-white hover:underline">
-              Login
-            </Link>
-            <Link to="/register" className="text-slate-300 hover:text-white hover:underline">
-              Register
-            </Link>
+            <Link to="/" className="text-slate-300 hover:text-white hover:underline">Home</Link>
+            <Link to="/login" className="text-slate-300 hover:text-white hover:underline">Login</Link>
+            <Link to="/register" className="text-slate-300 hover:text-white hover:underline">Register</Link>
           </div>
-          
+
           <p className="text-sm text-slate-400">
             &copy; {new Date().getFullYear()} Citizen Ledger Vision. All rights reserved.
             This is a prototype application demonstrating blockchain concepts.
