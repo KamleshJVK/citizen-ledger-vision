@@ -135,7 +135,10 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Recent Policies Preview */}
+          {/* Recent Policies Preview */}
+          <h2 className="mb-6 text-center text-3xl font-bold">
+                Architecture Diagram
+              </h2>
       <img 
             src="/d3ai12.png" 
             alt="Architecture Diagram" 
